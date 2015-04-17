@@ -2,3 +2,8 @@ mipd
 rd
 pings
 pingc
+miptp
+he2.sublime-project
+*.sublime*
+*.o
+socket*

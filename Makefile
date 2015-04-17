@@ -2,7 +2,7 @@ DEPS=mipd.h
 CFL=-g -Wall -lm
 
 # Default
-all: mipd ping rd
+all: mipd ping rd miptp
 
 # Cleanup
 clear:
@@ -52,3 +52,13 @@ rd: rd.o
 
 rd.o: rd.c
 	gcc -c -o rd.o rd.c $(CFL)
+
+# Transport Daemon
+miptp: miptp.o applist.o
+	gcc -o miptp miptp.o applist.o $(CFL)
+
+miptp.o: miptp.c applist.h
+	gcc -c -o miptp.o miptp.c $(CFL)
+
+applist.o: applist.c miptp.h
+	gcc -c -o applist.o applist.c $(CFL)
