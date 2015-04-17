@@ -2,7 +2,7 @@ DEPS=mipd.h
 CFL=-g -Wall -lm
 
 # Default
-all: mipd ping rd miptp
+all: mipd ping rd miptp file
 
 # Cleanup
 clear:
@@ -62,3 +62,18 @@ miptp.o: miptp.c applist.h
 
 applist.o: applist.c miptp.h
 	gcc -c -o applist.o applist.c $(CFL)
+
+# File server and client
+file: files filec
+
+files: files.o
+	gcc -o files files.o $(CFL)
+
+files.o: files.c
+	gcc -c -o files.o files.c $(CFL)
+
+filec: filec.o
+	gcc -o filec filec.c $(CFL)
+
+filec.o: filec.c
+	gcc -c -o filec.o filec.c $(CFL)

@@ -3,6 +3,8 @@ rd
 pings
 pingc
 miptp
+files
+filec
 he2.sublime-project
 *.sublime*
 *.o

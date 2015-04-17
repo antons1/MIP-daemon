@@ -10,7 +10,7 @@
 
 #include "applist.h"
 
-#define MAX_PORTS 65535
+#define MAX_PORTS 10
 #define FDPOS_MIP 0
 #define FDPOS_APP MAX_PORTS+1
 #define MAX_QUEUE 10
@@ -50,9 +50,21 @@ int main(int argc, char *argv[]) {
 	fds[FDPOS_APP].fd = appfd;
 	fds[FDPOS_APP].events = POLLIN;
 
+	int i = 1;
+	for(; i <= MAX_PORTS; i++) {
+		fds[i].fd = -1;
+		fds[i].events = 0;
+	}
+
 	// Start polling
 	while(1) {
-		int rd = poll(fds, MAX_PORTS+2, 0);
+		nfds_t polls = MAX_PORTS+2;
+		int rd = poll(fds, polls, 0);
+
+		if(rd == -1) {
+			perror("MIPTP: Poll error");
+			continue;
+		}
 
 		if(rd != 0) {
 			if(fds[FDPOS_MIP].revents & POLLHUP) {
@@ -74,11 +86,13 @@ int main(int argc, char *argv[]) {
 
 			if(fds[FDPOS_APP].revents & POLLIN) {
 				// Incoming connection from app
-				char buf[16];
+				printf("here");
+				char buf[2];
 				read(fds[FDPOS_APP].fd, buf, 2);
-				if(debug) fprintf(stderr, "MIPTP: Incoming connection from app, port %s.", buf);
+				uint16_t port;
+				memcpy(&port, buf, 2);
+				if(debug) fprintf(stderr, "MIPTP: Incoming connection from app, port %d.", port);
 
-				uint16_t port = (uint16_t)atoi(buf);
 				if(getApp(port, NULL) == 0) {
 					if(debug) fprintf(stderr, " Accepted\n");
 					int fd = accept(fds[FDPOS_APP].fd, NULL, NULL);
@@ -201,6 +215,8 @@ int appConnect() {
 	struct sockaddr_un addr;
 	addr.sun_family = AF_UNIX;
 	sprintf(addr.sun_path, "socket%d_tp", lmip);
+
+	unlink(addr.sun_path);
 
 	if(bind(fd, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) == -1) {
 		perror("MIPTP: Error binding to app socket");
