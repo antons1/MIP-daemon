@@ -9,7 +9,9 @@
 #include <sys/un.h>
 #include <poll.h>
 
-#define FID 3
+#include "../mipdf/mipdproto.h"
+
+#define FID 1
 #define BC_INTERVAL 30
 #define INVALID_TIMER 180
 #define FLUSH_TIMER 240
@@ -32,7 +34,6 @@ struct route_inf {
 	uint8_t mip:8;
 } __attribute__ ((packed));
 
-// Can be exchanged with the PING protocol.
 struct route_dg {
 	uint8_t src_mip:8;
 	uint8_t local_mip:8;
@@ -110,9 +111,10 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	struct route_dg *id = malloc(sizeof(struct route_dg));
-	memset(id, 0, sizeof(struct route_dg));
-	id->records_len = FID;
+	struct mipd_packet *id = malloc(sizeof(struct mipd_packet));
+	memset(id, 0, sizeof(struct mipd_packet));
+	id->dst_mip = FID;
+	id->content_len = 3;
 
 	if(send(mipconn, (char *)id, sizeof(struct route_dg), 0) == -1) {
 		perror("ROUTE: Error identifying to MIP daemon");
@@ -135,10 +137,13 @@ int main(int argc, char *argv[]) {
 	hello->local_mip = 0;
 	hello->records_len = 1;
 	memset(hello->records, 0, sizeof(hello->records));
-	
+
+	struct mipd_packet *hellowrap;
+	mipdCreatepacket(lmip, sizeof(struct route_dg), (char *)hello, &hellowrap);
+
 	srand(time(NULL));
 
-	if(send(fds[0].fd, hello, sizeof(struct route_dg), 0) == -1) {
+	if(send(fds[0].fd, (char *)hellowrap, sizeof(struct route_dg), 0) == -1) {
 		perror("ROUTE: Error saying hello");
 		close(mipconn);
 		return 1;
@@ -160,7 +165,9 @@ int main(int argc, char *argv[]) {
 				if(debug) printf("ROUTE: Recieving data on socket\n");
 				char buf[1500];
 				read(fds[0].fd, buf, 1500);
-				recvdata(buf);
+				struct mipd_packet *mp = (struct mipd_packet *)buf;
+
+				recvdata(mp->content);
 			}
 		}
 
@@ -170,7 +177,14 @@ int main(int argc, char *argv[]) {
 			getmessage(&buf);
 
 			if(debug) printf("ROUTE: SRC %d | LCL %d | MOD %d | LEN %d\n", buf->src_mip, buf->local_mip, buf->mode, buf->records_len);
-			send(fds[0].fd, buf, 1500, 0);
+			
+			struct mipd_packet *mp;// = malloc(sizeof(struct mipd_packet) + 1492);
+			//mp->dst_mip = lmip;
+			//mp->content_len = 1496/4;
+			//memcpy(mp->content, buf, 1492);
+			
+			mipdCreatepacket(lmip, 1496, (char *)buf, &mp);
+			send(fds[0].fd, mp, 1500, 0);
 		}
 
 		if(changeflag && (time(NULL)-UPD_INTERVAL) >= lastupdate) {

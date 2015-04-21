@@ -43,7 +43,7 @@ struct mip_frame {
 } __attribute__ ((packed));
 
 #include "unixs.h"
-#include "rd.h"
+#include "../rdf/rd.h"
 
 // Wait for ARP list
 struct arp_list {
@@ -186,22 +186,13 @@ int mipgetmessage(uint8_t src, char **msg) {
 void readtransport(struct mip_frame *frame) {
 	if(debug) fprintf(stderr, "MIPD: readtransport(%p)\n", frame);
 	// Pass on to ping
-	
- 	struct us_frame *tmp1 = (struct us_frame *)frame->content;
-
- 	if(debug) fprintf(stderr, "MIPD: Mode: %d | Reserved: %d\n", tmp1->mode, tmp1->padding);
- 	if(tmp1->padding != 0) return;
 
  	char *msg = malloc(MIP_MAX_LEN);
  	memset(msg, 0, MIP_MAX_LEN);
  	memcpy(msg, frame->content, MIP_MAX_LEN-sizeof(struct mip_frame));
 
- 	struct us_frame *tmp = (struct us_frame *)msg;
- 	uint8_t id;
-
- 	if(tmp->mode == 0) id = PINGSID;	// From client, to server
- 	else id = PINGCID;					// From server, to client
-	readus(id, msg);
+ 	
+ 	sendus(MIP_MAX_LEN, TPID, msg);
 
 }
 
@@ -223,7 +214,7 @@ void readroute(struct mip_frame *frame, uint8_t src) {
 
 	if(debug) fprintf(stderr, "MIPD: Sending to RD: LCL %d | SRC %d | LEN %d | MOD %d\n", rd->local_mip, rd->src_mip, rd->records_len, rd->mode);
 	
-	readus(RDID, msg);
+	sendus(MIP_MAX_LEN, RDID, msg);
 }
 
 /**

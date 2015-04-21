@@ -8,17 +8,10 @@
 #include "mip.h"
 #include "messagelist.h"
 #include "mipd.h"
-#include "rd.h"
+#include "../rdf/rd.h"
+#include "mipdproto.h"
 
 #define ROUTETIMEOUT 2
-
-struct us_frame {
-	uint8_t src_addr:8;
-	uint8_t dst_addr:8;
-	uint8_t mode:1;
-	uint8_t padding:7;
-	char content[0];
-} __attribute__ ((packed));
 
 struct r_list {
 	uint8_t fdst;
@@ -31,7 +24,7 @@ struct mllist *mlist;
 struct r_list *rlist;
 
 void readus(uint8_t, char *);
-void sendus(char *);
+void sendus(size_t, uint8_t, char *);
 int ushasmessage(uint8_t);
 int usgetmessage(uint8_t, char **);
 void readrd(char *);
@@ -44,8 +37,21 @@ void sendrd(uint8_t, uint8_t, char *);
  */
 void readus(uint8_t id, char *msg) {
 	if(debug) fprintf(stderr, "MIPD: readus(%d, %p)\n", id, msg);
-	struct us_frame *packet = (struct us_frame *)msg;
+	struct mipd_packet *packet = (struct mipd_packet *)msg;
 
+	if(debug) fprintf(stderr, "MIPD: Destinaton: %d | Lenght: %d\n", packet->dst_mip, packet->content_len);
+
+	if(!islocalmip(packet->dst_mip)) sendrd(mipaddrs[0], packet->dst_mip, (char *)packet->content);
+	else readrd((char *)packet->content);
+}
+
+/**
+ * Reads a message from IPC and delegates it to correct functions
+ * @param msg Recieved message
+ */
+void sendus(size_t len, uint8_t id, char *msg) {
+	if(debug) fprintf(stderr, "MIPD: sendus(%zu, %d, %p)\n", len, id, msg);
+	
 	if(mlist == NULL) {
 		mlist = malloc(sizeof(struct mllist));
 		memset(mlist, 0, sizeof(struct mllist));
@@ -56,25 +62,19 @@ void readus(uint8_t id, char *msg) {
 	getmlist(id, mlist, &check);
 
 	if(debug) {
-		fprintf(stderr, "MIPD: IPC packet to id %d | ", id);
-		fprintf(stderr, "Mode: %d | Reserved: %d\n", packet->mode, packet->padding);
+		fprintf(stderr, "MIPD: IPC packet to id %d\n", id);
 	}
 
-	addmessage(msg, check);
-}
+	uint16_t mlen = len/4;
+	if(len%4) mlen++;
 
-/**
- * Reads a message from IPC and delegates it to correct functions
- * @param msg Recieved message
- */
-void sendus(char *msg) {
-	if(debug) fprintf(stderr, "MIPD: sendus(%p)\n", msg);
-	struct us_frame *packet = (struct us_frame *)msg;
+	struct mipd_packet *mp;
+	mipdCreatepacket(mipaddrs[0], mlen, msg, &mp);
 
-	if(debug) printf("MIPD: Mode: %d | To: %d | From: %d | Padding: %d | Content: %s\n", packet->mode, packet->dst_addr, packet->src_addr, packet->padding, packet->content);
+	struct route_dg *te = (struct route_dg *)mp->content;
+	fprintf(stderr, "MIPD!!: SRC: %d | LCL: %d | LEN: %d | MOD: %d\n", te->src_mip, te->local_mip, te->records_len, te->mode);
 
-	if(packet->padding == 0) sendrd(packet->src_addr, packet->dst_addr, msg);
-	else readrd(msg);
+	addmessage((char *)mp, check);
 }
 
 /**
@@ -131,7 +131,7 @@ void sendrd(uint8_t src, uint8_t dst, char *msg) {
 	rinf->mip = dst;
 	rinf->cost = TTL_MAX+1;
 
-	readus(RDID, (char *)req);
+	sendus(sizeof(struct route_dg)+sizeof(struct route_inf), RDID, (char *)req);
 
 	if(rlist == NULL) {
 		rlist = malloc(sizeof(struct r_list));
@@ -175,8 +175,8 @@ void readrd(char *msg) {
 		while(rl->next != NULL) {
 			if(rl->next->fdst == rd->records[0].mip) {
 				if(debug) {
-					struct us_frame *uf = (struct us_frame *)rl->next->msg;
-					fprintf(stderr, "MIPD: Sending message: Mode: %d | Padding: %d | To: %d | From %d\n", uf->mode, uf->padding, uf->dst_addr, uf->src_addr);
+					struct mipd_packet *mp = (struct mipd_packet *)rl->next->msg;
+					fprintf(stderr, "MIPD: Sending message: To %d, length %u\n", mp->dst_mip, mp->content_len);
 				}
 				if(rd->records[0].cost < 16) sendtransport(rd->src_mip, rd->local_mip, rd->records[0].mip, rl->next->msg);
 				struct r_list *tmp = rl->next;

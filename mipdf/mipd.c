@@ -19,7 +19,8 @@
 #include "unixs.h"
 #include "mipmac.h"
 #include "comm.h"
-#include "rd.h"
+#include "../rdf/rd.h"
+#include "mipdproto.h"
 
 // Definitions
 #define MAX_SOCKETS 5	// Maximum number of non-ethernet sockets that can be in the POLL array
@@ -27,9 +28,8 @@
 #define STDOUT_FD 1		// FD of STDOUT
 #define STDERR_FD 2		// FD of STDERR
 #define MAX_MIPS 10		// Maximum amount of MIP addresses suported by the daemon 
-#define PINGSID 1
-#define PINGCID 2
-#define RDID 3
+#define RDID 1
+#define TPID 2
 
 // Prototypes
 int setupethsocket(struct pollfd *);
@@ -114,77 +114,63 @@ int main(int argc, char *argv[]) {
 		// Check unix socket
 		if(fds[MAX_MIPS+1].revents & POLLIN) {
 			// Incoming connection
+			if(debug) fprintf(stderr, "MIPD: Incoming connection from ");
 			memset(buf, 0, buflen);
 			int tmp = accept(fds[MAX_MIPS+1].fd, NULL, NULL);
 			recv(tmp, buf, buflen, 0);
-			struct us_frame *uframe = (struct us_frame *)buf;
-
-			if(debug) fprintf(stderr, "MIPD: Incoming connection from ");
-
-			if(uframe->padding == PINGCID && fds[MAX_MIPS+2].fd == -1) {
-				// Ping client connected
-				if(debug) fprintf(stderr, "PING client\n");
-				fds[MAX_MIPS+2].fd = tmp;
-			} else if(uframe->padding == PINGSID && fds[MAX_MIPS+3].fd == -1) {
-				if(debug) fprintf(stderr, "PING server\n");
-				// Ping server connected
-				fds[MAX_MIPS+3].fd = tmp;
-			} else if(uframe->padding == RDID && fds[MAX_MIPS+4].fd == -1) {
-				if(debug) fprintf(stderr, "Routing Daemon\n");
+			
+			struct mipd_packet *id = (struct mipd_packet *)buf;
+			fprintf(stderr, "ID: %d, CMPTO: %d, FD: %d ", id->dst_mip, RDID, fds[MAX_MIPS+2].fd);
+			if(id->dst_mip == RDID && fds[MAX_MIPS+2].fd == -1){
 				// Routing daemon connected
-				fds[MAX_MIPS+4].fd = tmp;
+				if(debug) fprintf(stderr, "Routing daemon\n");
+				fds[MAX_MIPS+2].fd = tmp;
+
+				size_t msgsz = sizeof(struct route_dg)+(nomips*sizeof(struct route_inf));
+				struct route_dg *rd = malloc(msgsz);
+				memset(rd, 0, msgsz);
+
+				rd->local_mip = rd->src_mip = mipaddrs[0];
+				rd->records_len = nomips;
+				rd->mode = 1;
 
 				int i = 0;
-				int j = 0;
-
 				for(; i < nomips; i++) {
-					struct route_dg *rd = malloc(sizeof(struct route_dg)+nomips*sizeof(struct route_inf));
-					memset(rd, 0, sizeof(struct route_dg)+nomips*sizeof(struct route_inf));
-
-					rd->local_mip = rd->src_mip = mipaddrs[i];
-					rd->records_len = nomips;
-					rd->mode = 1;
-					for(; j < nomips; j++) {
-						rd->records[j].cost = 31;
-						rd->records[j].mip = mipaddrs[j];
-					}
-
-					j = 0;
-
-					readus(RDID, (char *)rd);
+					rd->records[i].cost = 31;
+					rd->records[i].mip = mipaddrs[i];
 				}
+
+				sendus(msgsz, RDID, (char *)rd);
+
+			} else if(id->dst_mip == TPID && fds[MAX_MIPS+3].fd == -1) {
+				// Transport daemon connected
+				if(debug) fprintf(stderr, "Transport daemon\n");
+				fds[MAX_MIPS+3].fd = tmp;
+
 			} else {
-				if(debug) fprintf(stderr, "Unknown Client. Closing.\n");
-				// Not known connection, or not room
+				if(debug) fprintf(stderr, "Unknown. Rejected.\n");
 				close(tmp);
 			}
 		}
 
-		// Check PING client/server
-		if(fds[MAX_MIPS+2].fd == -1 && ushasmessage(PINGCID)) {
-			while(ushasmessage(PINGCID)) {
-				char *tmp;
-				usgetmessage(PINGCID, &tmp);
-				free(tmp);
-			}
-		}
-		if(fds[MAX_MIPS+3].fd == -1 && ushasmessage(PINGSID)) {
-			while(ushasmessage(PINGSID)) {
-				char *tmp;
-				usgetmessage(PINGSID, &tmp);
-				free(tmp);
-			}
-		}
-		if(fds[MAX_MIPS+4].fd == -1 && ushasmessage(RDID)) {
+		if(fds[MAX_MIPS+2].fd == -1 && ushasmessage(RDID)) {
 			while(ushasmessage(RDID)) {
 				char *tmp;
 				usgetmessage(RDID, &tmp);
 				free(tmp);
 			}
 		}
-		if(fds[MAX_MIPS+2].revents != 0) checkus(&fds[MAX_MIPS+2], PINGCID);
-		if(fds[MAX_MIPS+3].revents != 0) checkus(&fds[MAX_MIPS+3], PINGSID);
-		if(fds[MAX_MIPS+4].revents != 0) checkus(&fds[MAX_MIPS+4], RDID);
+
+		if(fds[MAX_MIPS+3].fd == -1 && ushasmessage(TPID)) {
+			while(ushasmessage(TPID)) {
+				char *tmp;
+				usgetmessage(TPID, &tmp);
+				free(tmp);
+			}
+		}
+
+		if(fds[MAX_MIPS+2].revents != 0) checkus(&fds[MAX_MIPS+2], RDID);
+		if(fds[MAX_MIPS+3].revents != 0) checkus(&fds[MAX_MIPS+3], TPID);
 
 		// Cleanup lists
 		rinsearplist();
@@ -196,8 +182,8 @@ int main(int argc, char *argv[]) {
 		close(fds[i].fd);
 
 	close(unixsocket);
+	if(fds[MAX_MIPS+2].fd != -1) close(fds[MAX_MIPS+2].fd);
 	if(fds[MAX_MIPS+3].fd != -1) close(fds[MAX_MIPS+3].fd);
-	if(fds[MAX_MIPS+4].fd != -1) close(fds[MAX_MIPS+4].fd);
 
 	clearmip();
 	freemap(NULL);

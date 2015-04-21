@@ -1,7 +1,8 @@
 #define MAX_MIPS 10
 #define PINGSID 1
 #define PINGCID 2
-#define RDID 3
+#define RDID 1
+#define TPID 2
 
 extern char debug;
 extern uint8_t mipaddrs[MAX_MIPS];

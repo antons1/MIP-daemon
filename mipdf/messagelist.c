@@ -59,7 +59,7 @@ int getmessage(char **amsg, struct messagelist *root) {
 	memcpy(*amsg, tmp->msg, MIP_MAX_LEN);
 
 	root->next = tmp->next;
-	free(tmp->msg);
+	//free(tmp->msg);
 	free(tmp);
 
 	return 1;

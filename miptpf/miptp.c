@@ -9,11 +9,14 @@
 #include <sys/un.h>
 
 #include "applist.h"
+#include "miptpproto.h"
+#include "../mipdf/mipdproto.h"
 
 #define MAX_PORTS 10
 #define FDPOS_MIP 0
 #define FDPOS_APP MAX_PORTS+1
 #define MAX_QUEUE 10
+#define TPID 2
 
 uint8_t checkargs(int, char *[]);
 int mipConnect();
@@ -22,6 +25,8 @@ int appConnect();
 uint8_t debug;
 uint8_t lmip;
 uint16_t timeout;
+
+int getNextFds(struct pollfd []);
 
 int main(int argc, char *argv[]) {
 	lmip = checkargs(argc, argv);
@@ -32,13 +37,14 @@ int main(int argc, char *argv[]) {
 	int appfd = appConnect();
 
 	if(mipfd == -1) {
-		if(debug) fprintf(stderr, "MIPTP: Connection to daemon failed. Continuing.\n");
-		mipfd = 0;
-		//return 1;
+		if(debug) fprintf(stderr, "MIPTP: Connection to daemon failed. Exiting.\n");
+		if(debug) perror("Connecting to MIP");
+		return 1;
 	}
 
 	if(appfd == -1) {
 		fprintf(stderr, "MIPTP: Creating listening socket failed. Exiting.\n");
+		if(debug) perror("Setting up app socket");
 		return 1;
 	}
 
@@ -86,48 +92,57 @@ int main(int argc, char *argv[]) {
 
 			if(fds[FDPOS_APP].revents & POLLIN) {
 				// Incoming connection from app
-				printf("here");
-				char buf[2];
-				read(fds[FDPOS_APP].fd, buf, 2);
-				uint16_t port;
-				memcpy(&port, buf, 2);
-				if(debug) fprintf(stderr, "MIPTP: Incoming connection from app, port %d.", port);
+				char buf[MIPTP_MAX_CONTENT_LEN+sizeof(struct miptp_packet)];
+				int fd = accept(fds[FDPOS_APP].fd, NULL, NULL);
+				ssize_t rb = read(fd, buf, MIPTP_MAX_CONTENT_LEN);
+				struct miptp_packet *mtp = malloc(rb);
 
-				if(getApp(port, NULL) == 0) {
+				memset(mtp, 0, rb);
+				memcpy(mtp, buf, rb);
+
+				if(debug) fprintf(stderr, "MIPTP: Incoming connection from app, port %d.", mtp->dst_port);
+
+				if(getApp(mtp->dst_port, NULL) == 0) {
 					if(debug) fprintf(stderr, " Accepted\n");
-					int fd = accept(fds[FDPOS_APP].fd, NULL, NULL);
-					fds[port].fd = fd;
-					fds[port].events = POLLIN | POLLOUT | POLLHUP;
+					int fdind = getNextFds(fds);
 
-					addApp(port, NULL);
+					if(fdind == 0) {
+						if(debug) fprintf(stderr, "MIPTP: No room in FD set, closing\n");
+						close(fd);
+					} else {
+						fds[fdind].fd = fd;
+						fds[fdind].events = POLLIN | POLLOUT | POLLHUP;
+					}
+
+					addApp(mtp->dst_port, fdind, NULL);
 				} else {
 					if(debug) fprintf(stderr, " Rejected, port is in use\n");
-					close(accept(fds[FDPOS_APP].fd, NULL, NULL));
+					close(fd);
 				}
 			}
 
 			struct applist *curr = NULL;
-			getNextApp(&curr);
-			while(curr != NULL) {
-				if(fds[curr->port].revents & POLLHUP) {
+			while(getNextApp(&curr) != 0) {
+				if(fds[curr->fdind].revents & POLLHUP) {
 					// App has disconnected
 					if(debug) fprintf(stderr, "MIPTP: App on port %d has disconnected\n", curr->port);
 
-					close(fds[curr->port].fd);
-					fds[curr->port].fd = -1;
+					close(fds[curr->fdind].fd);
+					fds[curr->fdind].fd = -1;
 					rmApp(curr->port);
+					fds[curr->fdind].revents = 0;
 				}
 
-				if(fds[curr->port].revents & POLLIN) {
+				if(fds[curr->fdind].revents & POLLIN) {
 					// Incoming data on port
 					if(debug) fprintf(stderr, "MIPTP: Incoming data on port %d\n", curr->port);
 				}
 
-				if(fds[curr->port].revents & POLLOUT) {
+				if(fds[curr->fdind].revents & POLLOUT) {
 					// Port ready for write
 				}
 
-				getNextApp(&curr);
+				curr = NULL;
 			}
 		}
 	}
@@ -196,6 +211,18 @@ int mipConnect() {
 		return -1;
 	}
 
+	struct mipd_packet *identify = malloc(sizeof(struct mipd_packet));
+	memset(identify, 0, sizeof(struct mipd_packet));
+
+	identify->dst_mip = TPID;
+
+	int wb = write(fd, (char *)identify, sizeof(struct mipd_packet));
+	if(wb == -1) {
+		perror("Failed writing to MIP");
+		return 0;
+	}
+	free(identify);
+
 	return fd;
 }
 
@@ -229,4 +256,18 @@ int appConnect() {
 	}
 
 	return fd;
+}
+
+/**
+ * Returns the index of the next available spot in the FD set
+ * @param  fds FD set to find position in
+ * @return     Index of free position, 0 if none available
+ */
+int getNextFds(struct pollfd fds[]) {
+	int i = 1;
+	for(; i <= MAX_PORTS; i++) {
+		if(fds[i].fd == -1) return i;
+	}
+
+	return 0;
 }

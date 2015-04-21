@@ -4,18 +4,10 @@
 #endif
 
 void readus(uint8_t, char *);
-void sendus(char *);
+void sendus(size_t, uint8_t, char *);
 int ushasmessage(uint8_t);
 int usgetmessage(uint8_t, char **);
 void clearus();
 void reard(char *);
 void sendrd(uint8_t, uint8_t, char *);
 void rinserdlist();
-
-struct us_frame {
-	uint8_t src_addr:8;
-	uint8_t dst_addr:8;
-	uint8_t mode:1;
-	uint8_t padding:7;
-	char content[0];
-} __attribute__ ((packed));

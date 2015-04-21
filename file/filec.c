@@ -8,6 +8,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include "../miptpf/miptpproto.h"
+
 uint8_t lmip = 20;
 
 int main(int argc, char *argv[]) {
@@ -27,10 +29,16 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	char *towr;
-	uint16_t port = 3456;
+	struct miptp_packet *identify;
+	uint8_t dstm = lmip;
+	uint16_t dstp = 4365;
+	uint16_t cl = 0;
+	char *msg = malloc(0);
 
-	towr = &port;
-	write(lconn, towr, 2);
+	miptpCreatepacket(dstm, dstp, cl, msg, &identify);
+	write(lconn, (char *)identify, sizeof(struct miptp_packet)+cl);
+	
+	
+
 	return 0;
 }

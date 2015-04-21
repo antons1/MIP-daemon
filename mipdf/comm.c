@@ -81,7 +81,7 @@ void checkus(struct pollfd *fd, uint8_t id) {
 		ssize_t rb = recv(fd->fd, buf, MIP_MAX_LEN, 0);
 		if(rb == -1) perror("MIPD: Error reading IPC client");
 
-		sendus(buf);
+		readus(id, buf);
 	}
 
 	if((fd->revents & POLLOUT) && ushasmessage(id)) {
