@@ -111,12 +111,10 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	struct mipd_packet *id = malloc(sizeof(struct mipd_packet));
-	memset(id, 0, sizeof(struct mipd_packet));
-	id->dst_mip = FID;
-	id->content_len = 3;
+	struct mipd_packet *id;
+	mipdCreatepacket(FID, 0, "", &id);
 
-	if(send(mipconn, (char *)id, sizeof(struct route_dg), 0) == -1) {
+	if(send(mipconn, (char *)id, sizeof(struct mipd_packet), 0) == -1) {
 		perror("ROUTE: Error identifying to MIP daemon");
 		close(mipconn);
 		return 1;
@@ -178,13 +176,12 @@ int main(int argc, char *argv[]) {
 
 			if(debug) printf("ROUTE: SRC %d | LCL %d | MOD %d | LEN %d\n", buf->src_mip, buf->local_mip, buf->mode, buf->records_len);
 			
-			struct mipd_packet *mp;// = malloc(sizeof(struct mipd_packet) + 1492);
-			//mp->dst_mip = lmip;
-			//mp->content_len = 1496/4;
-			//memcpy(mp->content, buf, 1492);
+			struct mipd_packet *mp;
+			struct route_dg *tmp = (struct route_dg *)buf;
+			size_t msgsz = sizeof(struct route_dg)+(sizeof(struct route_inf)*tmp->records_len);
 			
-			mipdCreatepacket(lmip, 1496, (char *)buf, &mp);
-			send(fds[0].fd, mp, 1500, 0);
+			mipdCreatepacket(lmip, msgsz, (char *)buf, &mp);
+			send(fds[0].fd, mp, msgsz, 0);
 		}
 
 		if(changeflag && (time(NULL)-UPD_INTERVAL) >= lastupdate) {

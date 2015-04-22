@@ -9,6 +9,7 @@
 
 struct messagelist{
 	char *msg;
+	size_t msgsize;
 	struct messagelist *next;
 };
 
@@ -24,14 +25,16 @@ struct mllist {
  * @param  root Messagelist to store it in
  * @return      1 on success, 0 on failure
  */
-int addmessage(char *amsg, struct messagelist *root) {
-	if(debug) fprintf(stderr, "MIPD: addmessage(%p, %p)\n", amsg, root);
+int addmessage(char *amsg, size_t msglen, struct messagelist *root) {
+	if(debug) fprintf(stderr, "MIPD: addmessage(%p, %zu, %p)\n", amsg, msglen, root);
 	if(debug) fprintf(stderr, "MIPD: Adding message to messagelist\n");
 	if(root == NULL) return 0;
 	while(root->next != NULL) root = root->next;
 
 	struct messagelist *next = malloc(sizeof(struct messagelist));
-	next->msg = amsg;
+	next->msg = malloc(msglen);
+	memcpy(next->msg, amsg, msglen);
+	next->msgsize = msglen;
 	next->next = NULL;
 
 	root->next = next;
@@ -45,7 +48,7 @@ int addmessage(char *amsg, struct messagelist *root) {
  * @param  root Messagelist to get message from
  * @return      1 on success, 0 on failure
  */
-int getmessage(char **amsg, struct messagelist *root) {
+int getmessage(char **amsg, size_t *msglen, struct messagelist *root) {
 	if(debug) fprintf(stderr, "MIPD: getmessage(%p (%p), %p)\n", amsg, *amsg, root);
 	if(root == NULL) return 0;
 	if(root->next == NULL) return 0;
@@ -54,12 +57,12 @@ int getmessage(char **amsg, struct messagelist *root) {
 
 	struct messagelist *tmp = root->next;
 
-	*amsg = malloc(MIP_MAX_LEN);
-	memset(*amsg, 0, MIP_MAX_LEN);
-	memcpy(*amsg, tmp->msg, MIP_MAX_LEN);
+	*amsg = malloc(tmp->msgsize);
+	memcpy(*amsg, tmp->msg, tmp->msgsize);
+	*msglen = tmp->msgsize;
 
 	root->next = tmp->next;
-	//free(tmp->msg);
+	free(tmp->msg);
 	free(tmp);
 
 	return 1;

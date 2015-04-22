@@ -10,10 +10,15 @@
 
 #include "../miptpf/miptpproto.h"
 
-uint8_t lmip = 20;
+uint8_t lmip;
+
+int checkargs(int, char *[]);
 
 int main(int argc, char *argv[]) {
 	int lconn = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+
+	lmip = checkargs(argc, argv);
+	if(lmip == -1) return 1;
 
 	if(lconn == -1) {
 		perror("FILEC: Error creating to socket");
@@ -38,7 +43,38 @@ int main(int argc, char *argv[]) {
 	miptpCreatepacket(dstm, dstp, cl, msg, &identify);
 	write(lconn, (char *)identify, sizeof(struct miptp_packet)+cl);
 	
-	
+	struct miptp_packet *test;
+	if(lmip == 20) dstm = 10;
+	else dstm = 20;
+
+	miptpCreatepacket(dstm, 3456, strlen("Hei, dette er en melding"), "Hei, dette er en melding", &test);
+	write(lconn, (char *)test, sizeof(struct miptp_packet)+strlen("Hei, dette er en melding"));
 
 	return 0;
+}
+
+int checkargs(int argc, char *argv[]) {
+	char *errmsg = malloc(1024);
+	char *usemsg = malloc(1024);
+	int error = 0;
+
+	sprintf(usemsg, "%s [Local MIP] [Filename] [Destination MIP] [Port number]", argv[0]);
+
+	if(argc < 2) {
+		sprintf(errmsg, "Too few arguments");
+		error = 1;
+	}
+
+	int ret = atoi(argv[1]);
+
+	if(error) {
+		printf("%s: error: %s\n", argv[0], errmsg);
+		printf("%s: usage: %s\n", argv[0], usemsg);
+	} 
+
+	free(errmsg);
+	free(usemsg);
+
+	if(error) return -1;
+	else return ret;
 }

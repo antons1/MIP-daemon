@@ -6,8 +6,8 @@
 void readus(uint8_t, char *);
 void sendus(size_t, uint8_t, char *);
 int ushasmessage(uint8_t);
-int usgetmessage(uint8_t, char **);
+int usgetmessage(uint8_t, size_t *, char **);
 void clearus();
-void reard(char *);
-void sendrd(uint8_t, uint8_t, char *);
+void reard(char *, size_t);
+void sendrd(uint8_t, uint8_t, size_t, char *);
 void rinserdlist();

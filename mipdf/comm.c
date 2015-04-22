@@ -34,7 +34,8 @@ void checketh(struct pollfd fd, uint8_t src) {
 	if(debug) fprintf(stderr, "MIPD: Sending MIP message on ethernet socket, MIP %d\n", src);
 		while(miphasmessage(src)) {
 			char *sbuf;
-			mipgetmessage(src, &sbuf);
+			size_t msgsize;
+			mipgetmessage(src, &msgsize, &sbuf);
 			if(debug) {
 				fprintf(stderr, "MIPD: Message: ");
 				struct eth_frame *eframe = (struct eth_frame *)sbuf;
@@ -47,9 +48,10 @@ void checketh(struct pollfd fd, uint8_t src) {
 				fprintf(stderr, "To MIP %d from MIP %d\n", mframe->dst_addr, mframe->src_addr);
 			}
 		
-			ssize_t sb = send(fd.fd, sbuf, MIP_MAX_LEN, 0);
+			ssize_t sb = send(fd.fd, sbuf, msgsize, 0);
 			if(sb == -1) {
 				perror("MIPD: Error sending ethernet frame");
+				fprintf(stderr, "MIPD: Msgsize: %zu\n", msgsize);
 			}
 			
 			free(sbuf);
@@ -90,8 +92,9 @@ void checkus(struct pollfd *fd, uint8_t id) {
 		while(ushasmessage(id)) {
 			char *sbuf;
 			if(debug) fprintf(stderr, "MIPD: Getting messagelist for ID %d\n", id);
-			usgetmessage(id, &sbuf);
-			if(send(fd->fd, sbuf, MIP_MAX_LEN, 0) == -1) {
+			size_t msglen;
+			usgetmessage(id, &msglen, &sbuf);
+			if(send(fd->fd, sbuf, msglen, 0) == -1) {
 				perror("MIPD: Error sending message to IPC client");
 			}
 			free(sbuf);

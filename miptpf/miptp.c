@@ -11,6 +11,7 @@
 #include "applist.h"
 #include "miptpproto.h"
 #include "../mipdf/mipdproto.h"
+#include "tpproto.h"
 
 #define MAX_PORTS 10
 #define FDPOS_MIP 0
@@ -136,6 +137,12 @@ int main(int argc, char *argv[]) {
 				if(fds[curr->fdind].revents & POLLIN) {
 					// Incoming data on port
 					if(debug) fprintf(stderr, "MIPTP: Incoming data on port %d\n", curr->port);
+					char buf[1500];
+					read(fds[curr->fdind].fd, buf, 1500);
+					struct miptp_packet *mtp = (struct miptp_packet *)buf;
+					struct mipd_packet *mp;
+					mipdCreatepacket(mtp->dst_mip, 1500, (char *)mtp, &mp);
+					write(fds[FDPOS_MIP].fd, (char *)mp, 1500);
 				}
 
 				if(fds[curr->fdind].revents & POLLOUT) {
@@ -211,8 +218,8 @@ int mipConnect() {
 		return -1;
 	}
 
-	struct mipd_packet *identify = malloc(sizeof(struct mipd_packet));
-	memset(identify, 0, sizeof(struct mipd_packet));
+	struct mipd_packet *identify;
+	mipdCreatepacket(TPID, 0, "", &identify);
 
 	identify->dst_mip = TPID;
 

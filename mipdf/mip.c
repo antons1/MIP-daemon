@@ -50,6 +50,7 @@ struct arp_list {
 	struct arp_list *next;
 	char *msg;
 	time_t sent;
+	size_t msglen;
 	uint8_t dst_addr;
 	uint8_t via_addr;
 	uint8_t src_addr;
@@ -64,18 +65,18 @@ static struct mllist *mlist;
 // Read functions
 int miphasmessage(uint8_t);
 void readmip(char *, uint8_t);
-int mipgetmessage(uint8_t, char **);
+int mipgetmessage(uint8_t, size_t *, char **);
 void readtransport(struct mip_frame *);
 void readarp(struct mip_frame *);
 void readarpr(struct mip_frame *);
 void readroute(struct mip_frame *, uint8_t);
 
 // Send functions
-void sendmip(uint8_t, uint8_t, uint8_t, uint8_t, char *);
+void sendmip(uint8_t, uint8_t, uint8_t, uint8_t, size_t, char *);
 void sendarp(uint8_t, uint8_t);
 void sendarpr(uint8_t, uint8_t);
-void sendtransport(uint8_t, uint8_t, uint8_t, char *);
-void sendroute(uint8_t, int16_t, int16_t, char *);
+void sendtransport(uint8_t, uint8_t, uint8_t, size_t, char *);
+void sendroute(uint8_t, int16_t, int16_t, size_t, char *);
 
 /**
  * Checks whether a MIP message is queued to send
@@ -101,9 +102,7 @@ int miphasmessage(uint8_t src) {
  */
 void readmip(char *msg, uint8_t src) {
 	if(debug) fprintf(stderr, "MIPD: readmip(%p)\n", msg);
-	struct eth_frame *eframe = malloc(MIP_MAX_LEN+sizeof(struct eth_frame));
-	memset(eframe, 0, (sizeof(struct eth_frame)+MIP_MAX_LEN));
-	memcpy(eframe, msg, (MIP_MAX_LEN+sizeof(struct eth_frame)));
+	struct eth_frame *eframe = (struct eth_frame *)msg;
 
 	if(debug) {
 		fprintf(stderr, "MIPD: Reading MIP message: ");
@@ -114,9 +113,8 @@ void readmip(char *msg, uint8_t src) {
 		fprintf(stderr, "\n");
 	}
 
-	struct mip_frame *mframe = malloc(MIP_MAX_LEN);
-	memset(mframe, 0, MIP_MAX_LEN);
-	memcpy(mframe, eframe->content, MIP_MAX_LEN);
+	struct mip_frame *mframe = (struct mip_frame *)eframe->content;
+	size_t msglen = ((mframe->content_len)*4)-sizeof(struct mip_frame);
 
 	if(debug) fprintf(stderr, "MIPD: From MIP %d to MIP %d | ", mframe->src_addr, mframe->dst_addr);
 	if(debug) fprintf(stderr, "Type: %d | TTL: %d | Length: %d\n", mframe->tra_bits, mframe->ttl, mframe->content_len);
@@ -125,13 +123,11 @@ void readmip(char *msg, uint8_t src) {
 		if(debug) fprintf(stderr, "MIPD: Frame is not for this daemon, passing on\n");
 		if(mframe->ttl != 0) {
 			mframe->ttl -= 1;
-			char *msg = malloc(MIP_MAX_LEN-sizeof(struct mip_frame));
-			memcpy(msg, mframe->content, MIP_MAX_LEN-sizeof(struct mip_frame));
-			sendrd(mframe->src_addr, mframe->dst_addr, msg);
+			char *msg = malloc(msglen);
+			memcpy(msg, mframe->content, msglen);
+			sendrd(mframe->src_addr, mframe->dst_addr, msglen, msg);
 		} else if(debug) fprintf(stderr, "MIPD: Frame had TTL 0, dropping...\n");
 
-		free(eframe);
-		free(mframe);
 		return;
 	}
 
@@ -157,9 +153,6 @@ void readmip(char *msg, uint8_t src) {
 		default:
 		break;
 	}
-
-	free(eframe);
-	free(mframe);
 }
 
 /**
@@ -167,7 +160,7 @@ void readmip(char *msg, uint8_t src) {
  * @param  msg Where the message is placed
  * @return     returns 0 if no message was available, else 1
  */
-int mipgetmessage(uint8_t src, char **msg) {
+int mipgetmessage(uint8_t src, size_t *msglen, char **msg) {
 	if(mlist == NULL) {
 		mlist = malloc(sizeof(struct mllist));
 		memset(mlist, 0, sizeof(struct mllist));
@@ -176,7 +169,8 @@ int mipgetmessage(uint8_t src, char **msg) {
 
 	struct messagelist *check;
 	getmlist(src, mlist, &check);
-	return getmessage(msg, check);
+
+	return getmessage(msg, msglen, check);
 }
 
 /**
@@ -187,12 +181,13 @@ void readtransport(struct mip_frame *frame) {
 	if(debug) fprintf(stderr, "MIPD: readtransport(%p)\n", frame);
 	// Pass on to ping
 
- 	char *msg = malloc(MIP_MAX_LEN);
- 	memset(msg, 0, MIP_MAX_LEN);
- 	memcpy(msg, frame->content, MIP_MAX_LEN-sizeof(struct mip_frame));
+	size_t msglen = ((frame->content_len)*4)-sizeof(struct mip_frame);
+ 	char *msg = malloc(msglen);
+ 	memset(msg, 0, msglen);
+ 	memcpy(msg, frame->content, msglen);
 
  	
- 	sendus(MIP_MAX_LEN, TPID, msg);
+ 	sendus(msglen, TPID, msg);
 
 }
 
@@ -204,9 +199,11 @@ void readtransport(struct mip_frame *frame) {
 void readroute(struct mip_frame *frame, uint8_t src) {
 	// Send route datagram to routing daemon
 	if(debug) fprintf(stderr, "MIPD: readroute(%p, %d)\n", frame, src);
-	char *msg = malloc(MIP_MAX_LEN);
-	memset(msg, 0, MIP_MAX_LEN);
-	memcpy(msg, frame->content, MIP_MAX_LEN-sizeof(struct mip_frame));
+	size_t msglen = ((frame->content_len)*4)-sizeof(struct mip_frame);
+	fprintf(stderr, "Msglen: %zu, fr->cl: %d, szmf: %zu\n", msglen, frame->content_len, sizeof(struct mip_frame));
+	char *msg = malloc(msglen);
+	memset(msg, 0, msglen);
+	memcpy(msg, frame->content, msglen);
 
 	struct route_dg *rd = (struct route_dg *)msg;
 	if(rd->src_mip == 0) rd->src_mip = src;
@@ -214,7 +211,7 @@ void readroute(struct mip_frame *frame, uint8_t src) {
 
 	if(debug) fprintf(stderr, "MIPD: Sending to RD: LCL %d | SRC %d | LEN %d | MOD %d\n", rd->local_mip, rd->src_mip, rd->records_len, rd->mode);
 	
-	sendus(MIP_MAX_LEN, RDID, msg);
+	sendus(msglen, RDID, msg);
 }
 
 /**
@@ -241,7 +238,7 @@ void readarpr(struct mip_frame *frame) {
 
 	while(current->next != NULL) {
 		if(current->next->dst_addr == frame->src_addr) {
-			sendtransport(current->next->src_addr, current->next->via_addr, current->next->dst_addr, current->next->msg);
+			sendtransport(current->next->src_addr, current->next->via_addr, current->next->dst_addr, current->msglen, current->next->msg);
 			struct arp_list *tmp = current->next;
 			current->next = tmp->next;
 			free(tmp->msg);
@@ -263,34 +260,35 @@ void readarpr(struct mip_frame *frame) {
  * @param dst Destination MIP address
  * @param msg Message to send
  */
-void sendmip(uint8_t src, uint8_t via, uint8_t dst, uint8_t tra, char *msg) {
-	if(debug) fprintf(stderr, "MIPD: sendmip(%d, %d, %d, %d, %p)\n", src, via, dst, tra, msg);
+void sendmip(uint8_t src, uint8_t via, uint8_t dst, uint8_t tra, size_t msglen, char *msg) {
+	if(debug) fprintf(stderr, "MIPD: sendmip(%d, %d, %d, %d, %zu, %p)\n", src, via, dst, tra, msglen, msg);
 	char dsthw[6];
 
 	if(findhw(dsthw, via, NULL)) {
 		// Address of recipient is known, put in list
-		struct mip_frame *mframe = malloc(MIP_MAX_LEN);
-		memset(mframe, 0, MIP_MAX_LEN);
+		int miplen = (msglen+sizeof(struct mip_frame))/4;
+		if((msglen+sizeof(struct mip_frame))%4) miplen++;
+		struct mip_frame *mframe = malloc(miplen*4);
+		memset(mframe, 0, miplen*4);
 
 		mframe->src_addr = src;
 		mframe->dst_addr = dst;
 		mframe->tra_bits = tra;
 		mframe->ttl = TTL_MAX;
-		mframe->content_len = strlen(msg)/4;
-		if(strlen(msg)%4) mframe->content_len += 1;
-		memcpy(mframe->content, msg, MIP_MAX_LEN-sizeof(struct mip_frame));
+		mframe->content_len = miplen;
+		memcpy(mframe->content, msg, msglen);
 
 		if(debug) {
 			fprintf(stderr, "MIPD: MIP Frame: src: %d | dst: %d | tra: %d | ttl: %d | len: %d\n", mframe->src_addr, mframe->dst_addr, mframe->tra_bits, mframe->ttl, mframe->content_len);
 		}
 
-		struct eth_frame *eframe = malloc(sizeof(struct eth_frame)+MIP_MAX_LEN);
-		memset(eframe, 0, MIP_MAX_LEN);
+		struct eth_frame *eframe = malloc(sizeof(struct eth_frame)+(miplen*4));
+		memset(eframe, 0, sizeof(struct eth_frame)+(miplen*4));
 
 		eframe->eth_proto[1] = eframe->eth_proto[0] = 0xFF;
 		findhw(eframe->src_addr, src, NULL);
 		findhw(eframe->dst_addr, via, NULL);
-		memcpy(eframe->content, mframe, MIP_MAX_LEN);
+		memcpy(eframe->content, mframe, miplen*4);
 		free(mframe);
 
 		if(debug) {
@@ -309,7 +307,7 @@ void sendmip(uint8_t src, uint8_t via, uint8_t dst, uint8_t tra, char *msg) {
 
 		struct messagelist *srclist;
 		getmlist(src, mlist, &srclist);
-		addmessage((char *)eframe, srclist);
+		addmessage((char *)eframe, sizeof(struct eth_frame)+(miplen*4), srclist);
 
 	} else {
 		// Address of recipient is unknown, send arp
@@ -326,11 +324,13 @@ void sendmip(uint8_t src, uint8_t via, uint8_t dst, uint8_t tra, char *msg) {
 		memset(current->next, 0, sizeof(struct arp_list));
 		current = current->next;
 		current->next = NULL;
-		current->msg = malloc(MIP_MAX_LEN);
-		memcpy(current->msg, msg, MIP_MAX_LEN);
+
+		current->msg = malloc(msglen);
+		memcpy(current->msg, msg, msglen);
 		current->dst_addr = dst;
 		current->via_addr = via;
 		current->src_addr = src;
+		current->msglen = msglen;
 		current->sent = time(NULL);
 		sendarp(src, dst);
 
@@ -344,9 +344,9 @@ void sendmip(uint8_t src, uint8_t via, uint8_t dst, uint8_t tra, char *msg) {
  * @param dst Final destination address
  * @param msg Message to be sent
  */
-void sendtransport(uint8_t src, uint8_t via, uint8_t dst, char *msg) {
-	if(debug) fprintf(stderr, "MIPD: sendtransport(%d, %d, %d, %p)\n", src, via, dst, msg);
-	sendmip(src, via, dst, TRA_T, msg);
+void sendtransport(uint8_t src, uint8_t via, uint8_t dst, size_t msglen, char *msg) {
+	if(debug) fprintf(stderr, "MIPD: sendtransport(%d, %d, %d, %zu, %p)\n", src, via, dst, msglen, msg);
+	sendmip(src, via, dst, TRA_T, msglen, msg);
 }
 
 /**
@@ -357,35 +357,37 @@ void sendtransport(uint8_t src, uint8_t via, uint8_t dst, char *msg) {
  * @param dst Final destination address
  * @param msg Message to be sent
  */
-void sendroute(uint8_t src, int16_t via, int16_t dst, char *msg) {
-	if(debug) fprintf(stderr, "MIPD: sendroute(%d, %d, %d, %p)\n", src, via, dst, msg);
+void sendroute(uint8_t src, int16_t via, int16_t dst, size_t msglen, char *msg) {
+	if(debug) fprintf(stderr, "MIPD: sendroute(%d, %d, %d, %zu, %p)\n", src, via, dst, msglen, msg);
 
 	if(via == 255 && dst == 255) {
 		// Broadcast on if src
-		struct mip_frame *mframe = malloc(MIP_MAX_LEN);
-		memset(mframe, 0, MIP_MAX_LEN);
+		int miplen = (sizeof(struct mip_frame)+msglen)/4;
+		if((sizeof(struct mip_frame)+msglen)%4) miplen++;
+
+		struct mip_frame *mframe = malloc(miplen*4);
+		memset(mframe, 0, miplen*4);
 		mframe->tra_bits = TRA_R;
 		mframe->src_addr = src;
 		mframe->dst_addr = 255;
 		mframe->ttl = TTL_MAX;
-		mframe->content_len = strlen(msg)/4;
-		if(strlen(msg)%4) mframe->content_len++;
-		memcpy(mframe->content, msg, MIP_MAX_LEN-sizeof(struct mip_frame));
+		mframe->content_len = miplen;
+		memcpy(mframe->content, msg, msglen);
 
-		struct eth_frame *eframe = malloc(sizeof(struct eth_frame)+MIP_MAX_LEN);
-		memset(eframe, 0, sizeof(struct eth_frame)+MIP_MAX_LEN);
-		memcpy(eframe->content, mframe, MIP_MAX_LEN);
+		struct eth_frame *eframe = malloc(sizeof(struct eth_frame)+(miplen*4));
+		memset(eframe, 0, sizeof(struct eth_frame)+(miplen*4));
+		memcpy(eframe->content, mframe, (miplen*4));
 		findhw(eframe->src_addr, src, NULL);
 		memset(eframe->dst_addr, 0xFF, 6);
 		eframe->eth_proto[1] = eframe->eth_proto[0] = 0xFF;
 
 		struct messagelist *srclist;
 		getmlist(src, mlist, &srclist);
-		addmessage((char *)eframe, srclist);
+		addmessage((char *)eframe, sizeof(struct eth_frame)+miplen*4, srclist);
 
 		free(mframe);
 
-	} else sendmip(src, via, dst, TRA_R, msg);
+	} else sendmip(src, via, dst, TRA_R, msglen, msg);
 }
 
 /**
@@ -396,17 +398,19 @@ void sendroute(uint8_t src, int16_t via, int16_t dst, char *msg) {
 void sendarp(uint8_t src, uint8_t dst) {
 	if(debug) fprintf(stderr, "MIPD: sendarp(%d, %d)\n", src, dst);
 	if(debug) fprintf(stderr, "MIPD: Sending ARP to identify %d\n", dst);
-	struct mip_frame *mframe = malloc(MIP_MAX_LEN);
-	memset(mframe, 0, MIP_MAX_LEN);
+	int miplen = 1;
+	struct mip_frame *mframe = malloc(miplen*4);
+	memset(mframe, 0, miplen*4);
 	mframe->src_addr = src;
 	mframe->dst_addr = dst;
 	mframe->tra_bits = TRA_A;
 	mframe->ttl = TTL_MAX;
+	mframe->content_len = miplen;
 
-	struct eth_frame *eframe = malloc(sizeof(struct eth_frame)+MIP_MAX_LEN);
-	memset(eframe, 0, (sizeof(struct eth_frame)+MIP_MAX_LEN));
+	struct eth_frame *eframe = malloc(sizeof(struct eth_frame)+(miplen*4));
+	memset(eframe, 0, (sizeof(struct eth_frame)+(miplen*4)));
 	eframe->eth_proto[1] = eframe->eth_proto[0] = 0xFF;
-	memcpy(eframe->content, mframe, MIP_MAX_LEN);
+	memcpy(eframe->content, mframe, miplen*4);
 	findhw(eframe->src_addr, src, NULL);
 	memset(eframe->dst_addr, 0xFF, 6);
 
@@ -429,7 +433,7 @@ void sendarp(uint8_t src, uint8_t dst) {
 
 	struct messagelist *srclist;
 	getmlist(src, mlist, &srclist);
-	addmessage((char *)eframe, srclist);
+	addmessage((char *)eframe, sizeof(struct eth_frame)+(miplen*4), srclist);
 }
 
 /**
@@ -437,20 +441,22 @@ void sendarp(uint8_t src, uint8_t dst) {
  * @param dst MIP address to send APR response to
  */
 void sendarpr(uint8_t src, uint8_t dst) {
+	int miplen = 1;
 	if(debug) fprintf(stderr, "MIPD: sendarpr(%d, %d)\n", src, dst);
-	struct mip_frame *mframe = malloc(MIP_MAX_LEN);
-	memset(mframe, 0, MIP_MAX_LEN);
+	struct mip_frame *mframe = malloc(miplen*4);
+	memset(mframe, 0, miplen*4);
 	mframe->src_addr = src;
 	mframe->dst_addr = dst;
 	mframe->tra_bits = TRA_E;
 	mframe->ttl = TTL_MAX;
+	mframe->content_len = miplen;
 
-	struct eth_frame *eframe = malloc(sizeof(struct eth_frame)+MIP_MAX_LEN);
-	memset(eframe, 0, (sizeof(struct eth_frame)+MIP_MAX_LEN));
+	struct eth_frame *eframe = malloc(sizeof(struct eth_frame)+(miplen*4));
+	memset(eframe, 0, (sizeof(struct eth_frame)+(miplen*4)));
 	eframe->eth_proto[1] = eframe->eth_proto[0] = 0xFF;
 	findhw(eframe->src_addr, src, NULL);
 	findhw(eframe->dst_addr, dst, NULL);
-	memcpy(eframe->content, mframe, MIP_MAX_LEN);
+	memcpy(eframe->content, mframe, miplen*4);
 
 	if(debug) {
 		fprintf(stderr, "MIPD: MIP frame: src: %d | dst: %d | tra: %d | ttl: %d | len: %d\n", mframe->src_addr, mframe->dst_addr, mframe->tra_bits, mframe->ttl, mframe->content_len);
@@ -471,7 +477,7 @@ void sendarpr(uint8_t src, uint8_t dst) {
 
 	struct messagelist *srclist;
 	getmlist(src, mlist, &srclist);
-	addmessage((char *)eframe, srclist);
+	addmessage((char *)eframe, sizeof(struct eth_frame)+(miplen*4), srclist);
 }
 
 /**

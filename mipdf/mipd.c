@@ -120,7 +120,6 @@ int main(int argc, char *argv[]) {
 			recv(tmp, buf, buflen, 0);
 			
 			struct mipd_packet *id = (struct mipd_packet *)buf;
-			fprintf(stderr, "ID: %d, CMPTO: %d, FD: %d ", id->dst_mip, RDID, fds[MAX_MIPS+2].fd);
 			if(id->dst_mip == RDID && fds[MAX_MIPS+2].fd == -1){
 				// Routing daemon connected
 				if(debug) fprintf(stderr, "Routing daemon\n");
@@ -156,7 +155,8 @@ int main(int argc, char *argv[]) {
 		if(fds[MAX_MIPS+2].fd == -1 && ushasmessage(RDID)) {
 			while(ushasmessage(RDID)) {
 				char *tmp;
-				usgetmessage(RDID, &tmp);
+				size_t msgsize;
+				usgetmessage(RDID, &msgsize, &tmp);
 				free(tmp);
 			}
 		}
@@ -164,7 +164,8 @@ int main(int argc, char *argv[]) {
 		if(fds[MAX_MIPS+3].fd == -1 && ushasmessage(TPID)) {
 			while(ushasmessage(TPID)) {
 				char *tmp;
-				usgetmessage(TPID, &tmp);
+				size_t msgsize;
+				usgetmessage(TPID, &msgsize, &tmp);
 				free(tmp);
 			}
 		}

@@ -1,5 +1,6 @@
 struct messagelist{
 	char *msg;
+	size_t msgsize;
 	struct messagelist *next;
 };
 
@@ -9,8 +10,8 @@ struct mllist {
 	struct mllist *next;
 };
 
-int addmessage(char *, struct messagelist *);
-int getmessage(char **, struct messagelist *);
+int addmessage(char *, size_t, struct messagelist *);
+int getmessage(char **, size_t *, struct messagelist *);
 int hasmessage(const struct messagelist *);
 void clearlist(struct messagelist *);
 void getmlist(uint8_t, struct mllist *, struct messagelist **);
