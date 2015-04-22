@@ -62,8 +62,8 @@ rd.o: $(RDPRE)rd.c
 	gcc -c -o rd.o $(RDPRE)rd.c $(CFL)
 
 # Transport Daemon
-miptp: miptp.o applist.o miptpproto.o mipdproto.o
-	gcc -o miptp miptp.o applist.o miptpproto.o mipdproto.o $(CFL)
+miptp: miptp.o applist.o miptpproto.o mipdproto.o packetlist.o gbn.o tpproto.o
+	gcc -o miptp miptp.o applist.o miptpproto.o mipdproto.o packetlist.o gbn.o tpproto.o $(CFL)
 
 miptp.o: $(MIPTPPRE)miptp.c $(MIPTPPRE)applist.h $(MIPTPPRE)miptpproto.h
 	gcc -c -o miptp.o $(MIPTPPRE)miptp.c $(CFL)
@@ -73,6 +73,15 @@ applist.o: $(MIPTPPRE)applist.c $(MIPTPPRE)miptp.h
 
 miptpproto.o: $(MIPTPPRE)miptpproto.c $(MIPTPPRE)miptp.h
 	gcc -c -o miptpproto.o $(MIPTPPRE)miptpproto.c $(CFL)
+
+packetlist.o: $(MIPTPPRE)packetlist.c $(MIPTPPRE)miptp.h
+	gcc -c -o packetlist.o $(MIPTPPRE)packetlist.c $(CFL)
+
+gbn.o: $(MIPTPPRE)gbn.c $(MIPTPPRE)miptp.h
+	gcc -c -o gbn.o $(MIPTPPRE)gbn.c $(CFL)
+
+tpproto.o: $(MIPTPPRE)tpproto.c $(MIPTPPRE)miptp.h
+	gcc -c -o tpproto.o $(MIPTPPRE)tpproto.c
 
 # File server and client
 file: files filec

@@ -8,16 +8,20 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "applist.h"
-#include "miptpproto.h"
-#include "../mipdf/mipdproto.h"
-#include "tpproto.h"
-
 #define MAX_PORTS 10
+#define WINDOW_SIZE 10
 #define FDPOS_MIP 0
 #define FDPOS_APP MAX_PORTS+1
 #define MAX_QUEUE 10
 #define TPID 2
+#define TP_MAX_DATA 1492
+
+#include "miptpproto.h"
+#include "../mipdf/mipdproto.h"
+#include "tpproto.h"
+#include "packetlist.h"
+#include "applist.h"
+#include "gbn.h"
 
 uint8_t checkargs(int, char *[]);
 int mipConnect();
@@ -83,12 +87,11 @@ int main(int argc, char *argv[]) {
 
 			if(fds[FDPOS_MIP].revents & POLLIN) {
 				// Message from MIP
-				
 				if(debug) fprintf(stderr, "MIPTP: Data from MIP daemon\n");
-			}
-
-			if(fds[FDPOS_MIP].revents & POLLOUT) {
-				// MIP ready for write
+				char buf[1500];
+				recv(fds[FDPOS_MIP].fd, buf, 1500, 0);
+				struct mipd_packet *mp = (struct mipd_packet *)buf;
+				recvMip(mp);
 			}
 
 			if(fds[FDPOS_APP].revents & POLLIN) {
@@ -137,16 +140,25 @@ int main(int argc, char *argv[]) {
 				if(fds[curr->fdind].revents & POLLIN) {
 					// Incoming data on port
 					if(debug) fprintf(stderr, "MIPTP: Incoming data on port %d\n", curr->port);
-					char buf[1500];
-					read(fds[curr->fdind].fd, buf, 1500);
-					struct miptp_packet *mtp = (struct miptp_packet *)buf;
-					struct mipd_packet *mp;
-					mipdCreatepacket(mtp->dst_mip, 1500, (char *)mtp, &mp);
-					write(fds[FDPOS_MIP].fd, (char *)mp, 1500);
+					char buf[TP_MAX_DATA+sizeof(struct miptp_packet)];
+					recv(fds[curr->fdind].fd, buf, TP_MAX_DATA+sizeof(struct miptp_packet), 0);
+					
+					struct miptp_packet *recvd = (struct miptp_packet *)buf;
+					recvApp(recvd, curr);
 				}
 
-				if(fds[curr->fdind].revents & POLLOUT) {
-					// Port ready for write
+				if((fds[curr->fdind].revents & POLLOUT) && hasRecvData(curr)) {
+					// Port ready for write, and has waiting data
+					struct miptp_packet *mp;
+					getAppPacket(&mp, curr);
+					send(fds[curr->fdind].fd, mp, mp->content_len, 0);
+				}
+
+				if((fds[FDPOS_MIP].revents & POLLOUT) && hasSendData(curr)) {
+					// Mip ready for write, and port has data
+					struct mipd_packet *mp;
+					getMipPacket(&mp, curr);
+					send(fds[FDPOS_MIP].fd, mp, mp->content_len, 0);
 				}
 
 				curr = NULL;
