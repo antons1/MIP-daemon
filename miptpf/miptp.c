@@ -123,6 +123,8 @@ int main(int argc, char *argv[]) {
 					if(debug) fprintf(stderr, " Rejected, port is in use\n");
 					close(fd);
 				}
+
+				free(mtp);
 			}
 
 			struct applist *curr = NULL;
@@ -148,6 +150,7 @@ int main(int argc, char *argv[]) {
 				}
 
 				if((fds[curr->fdind].revents & POLLOUT) && hasRecvData(curr)) {
+					if(debug) fprintf(stderr, "MIPTP: Data waiting for app on port %d\n", curr->port);
 					// Port ready for write, and has waiting data
 					struct miptp_packet *mp;
 					getAppPacket(&mp, curr);
@@ -155,6 +158,7 @@ int main(int argc, char *argv[]) {
 				}
 
 				if((fds[FDPOS_MIP].revents & POLLOUT) && hasSendData(curr)) {
+					if(debug) fprintf(stderr, "MIPTP: Data waiting from app on port %d\n", curr->port);
 					// Mip ready for write, and port has data
 					struct mipd_packet *mp;
 					getMipPacket(&mp, curr);

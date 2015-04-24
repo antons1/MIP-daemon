@@ -77,7 +77,7 @@ miptpproto.o: $(MIPTPPRE)miptpproto.c $(MIPTPPRE)miptp.h
 packetlist.o: $(MIPTPPRE)packetlist.c $(MIPTPPRE)miptp.h
 	gcc -c -o packetlist.o $(MIPTPPRE)packetlist.c $(CFL)
 
-gbn.o: $(MIPTPPRE)gbn.c $(MIPTPPRE)miptp.h
+gbn.o: $(MIPTPPRE)gbn.c $(MIPTPPRE)miptp.h $(MIPTPPRE)packetlist.h
 	gcc -c -o gbn.o $(MIPTPPRE)gbn.c $(CFL)
 
 tpproto.o: $(MIPTPPRE)tpproto.c $(MIPTPPRE)miptp.h

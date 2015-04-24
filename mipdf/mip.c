@@ -200,7 +200,6 @@ void readroute(struct mip_frame *frame, uint8_t src) {
 	// Send route datagram to routing daemon
 	if(debug) fprintf(stderr, "MIPD: readroute(%p, %d)\n", frame, src);
 	size_t msglen = ((frame->content_len)*4)-sizeof(struct mip_frame);
-	fprintf(stderr, "Msglen: %zu, fr->cl: %d, szmf: %zu\n", msglen, frame->content_len, sizeof(struct mip_frame));
 	char *msg = malloc(msglen);
 	memset(msg, 0, msglen);
 	memcpy(msg, frame->content, msglen);

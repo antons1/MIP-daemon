@@ -1,10 +1,8 @@
 struct sendinfo {
 	uint32_t nextSendSeqno;
 	uint32_t nextAddSeqno;
-	uint8_t nextWindowPos;
 	time_t lastAckTime;
 	uint32_t lastAckSeqno;
-	struct packetlist readyQueue[WINDOW_SIZE];
 	struct packetlist *sendQueue;
 };
 
