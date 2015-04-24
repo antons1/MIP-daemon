@@ -3,3 +3,4 @@
 
 extern uint8_t lmip;
 extern uint8_t debug;
+extern uint16_t timeout;
