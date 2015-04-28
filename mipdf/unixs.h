@@ -4,7 +4,7 @@
 #endif
 
 void readus(uint8_t, char *);
-void sendus(size_t, uint8_t, char *);
+void sendus(size_t, uint8_t, uint8_t, char *);
 int ushasmessage(uint8_t);
 int usgetmessage(uint8_t, size_t *, char **);
 void clearus();

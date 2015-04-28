@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
 					rd->records[i].mip = mipaddrs[i];
 				}
 
-				sendus(msgsz, RDID, (char *)rd);
+				sendus(msgsz, RDID, mipaddrs[0], (char *)rd);
 
 			} else if(id->dst_mip == TPID && fds[MAX_MIPS+3].fd == -1) {
 				// Transport daemon connected

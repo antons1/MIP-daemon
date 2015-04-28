@@ -187,7 +187,7 @@ void readtransport(struct mip_frame *frame) {
  	memcpy(msg, frame->content, msglen);
 
  	
- 	sendus(msglen, TPID, msg);
+ 	sendus(msglen, TPID, frame->src_addr, msg);
 
 }
 
@@ -210,7 +210,7 @@ void readroute(struct mip_frame *frame, uint8_t src) {
 
 	if(debug) fprintf(stderr, "MIPD: Sending to RD: LCL %d | SRC %d | LEN %d | MOD %d\n", rd->local_mip, rd->src_mip, rd->records_len, rd->mode);
 	
-	sendus(msglen, RDID, msg);
+	sendus(msglen, RDID, mipaddrs[0], msg);
 }
 
 /**

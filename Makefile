@@ -81,7 +81,7 @@ gbn.o: $(MIPTPPRE)gbn.c $(MIPTPPRE)miptp.h $(MIPTPPRE)packetlist.h
 	gcc -c -o gbn.o $(MIPTPPRE)gbn.c $(CFL)
 
 tpproto.o: $(MIPTPPRE)tpproto.c $(MIPTPPRE)miptp.h
-	gcc -c -o tpproto.o $(MIPTPPRE)tpproto.c
+	gcc -c -o tpproto.o $(MIPTPPRE)tpproto.c $(CFL)
 
 # File server and client
 file: files filec

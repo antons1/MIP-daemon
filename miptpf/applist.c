@@ -19,11 +19,13 @@ struct sendinfo {
 struct recvinfo {
 	uint32_t nextRecvSeqno;
 	struct packetlist *recvQueue;
+	struct packetlist *ackQueue;
 };
 
 struct applist {
 	uint16_t port;
 	uint8_t fdind;
+	time_t lastTimeout;
 	struct sendinfo *sendinfo;
 	struct recvinfo *recvinfo;
 	struct applist *next;
@@ -40,7 +42,7 @@ static struct applist *root;
 static struct applist *current;
 
 int getNextApp(struct applist **ret) {
-	if(debug) fprintf(stderr, "MIPTP: getNextApp(%p (%p))\n", *ret, ret);
+	//if(debug) fprintf(stderr, "MIPTP: getNextApp(%p (%p))\n", *ret, ret);
 	initroot();
 	if(current == NULL) {
 		current = root;
@@ -49,11 +51,13 @@ int getNextApp(struct applist **ret) {
 	current = current->next;
 	*ret = current;
 
+	if(*ret == root) *ret = NULL;
+
 	return (*ret == NULL) ? 0 : 1;
 }
 
 int getApp(uint16_t port, struct applist **ret) {
-	if(debug) fprintf(stderr, "MIPTP: getApp(%d, %p (%p))\n", port, *ret, ret);
+	if(debug) fprintf(stderr, "MIPTP: getApp(%d, (return parameter))\n", port);
 	initroot();
 	struct applist *srch = root;
 	while(srch->next != NULL) {
@@ -69,7 +73,7 @@ int getApp(uint16_t port, struct applist **ret) {
 }
 
 int addApp(uint16_t port, uint8_t fdind, struct applist **ret) {
-	if(debug) fprintf(stderr, "addApp(%d, %d, %p (%p))\n", port, fdind, *ret, ret);
+	if(debug) fprintf(stderr, "MIPTP: addApp(%d, %d,(Return parameter))\n", port, fdind);
 	initroot();
 
 	struct applist *srch = root;
@@ -99,10 +103,7 @@ int rmApp(uint16_t port) {
 		if(srch->next->port == port) {
 			struct applist *tmp = srch->next;
 			srch->next = tmp->next;
-
-			if(current->port == tmp->port) {
-				current = srch;
-			}
+			current = srch->next;
 			free(tmp->sendinfo->sendQueue);
 			free(tmp->recvinfo->recvQueue);
 			free(tmp->sendinfo);
@@ -139,10 +140,13 @@ void initdata(struct applist *init) {
 
 	init->sendinfo->sendQueue = malloc(sizeof(struct packetlist));
 	init->recvinfo->recvQueue = malloc(sizeof(struct packetlist));
+	init->recvinfo->ackQueue = malloc(sizeof(struct packetlist));
 
 	memset(init->sendinfo->sendQueue, 0, sizeof(struct packetlist));
 	memset(init->recvinfo->recvQueue, 0, sizeof(struct packetlist));
+	memset(init->recvinfo->ackQueue, 0, sizeof(struct packetlist));
 
 	init->sendinfo->sendQueue->next = NULL;
 	init->recvinfo->recvQueue->next = NULL;
+	init->recvinfo->ackQueue->next = NULL;
 }

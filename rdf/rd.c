@@ -76,7 +76,7 @@ time_t lastupdate;				// Last time update was sent
 uint8_t changeflag;				// Whether changes has occured since last update/broadcast
 
 int debug = 0;					// Whether debug messages are printed
-int prtb = 1;					// Whether the table is printed on every update
+int prtb = 0;					// Whether the table is printed on every update
 
 /**
  * Main
@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
 			size_t msgsz = sizeof(struct route_dg)+(sizeof(struct route_inf)*tmp->records_len);
 			
 			mipdCreatepacket(lmip, msgsz, (char *)buf, &mp);
-			send(fds[0].fd, mp, msgsz, 0);
+			send(fds[0].fd, mp, sizeof(struct mipd_packet)+msgsz, 0);
 		}
 
 		if(changeflag && (time(NULL)-UPD_INTERVAL) >= lastupdate) {
@@ -268,6 +268,7 @@ void recvdata(char *msg) {
  */
 void respmip(struct route_dg *dg){
 	if(debug) printf("ROUTE: respmip(%p)\n", dg);
+	if(debug) printf("ROUTE: Getting route to mip %d\n", dg->records[0].mip);
 	
 	getroute(dg, dg->records[0].mip);
 

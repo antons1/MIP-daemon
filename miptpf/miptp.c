@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdint.h>
+#include <time.h>
 
 #include <poll.h>
 #include <sys/socket.h>
@@ -30,6 +31,7 @@ int appConnect();
 uint8_t debug;
 uint8_t lmip;
 uint16_t timeout;
+uint16_t totTimeout;
 
 int getNextFds(struct pollfd []);
 
@@ -89,7 +91,8 @@ int main(int argc, char *argv[]) {
 				// Message from MIP
 				if(debug) fprintf(stderr, "MIPTP: Data from MIP daemon\n");
 				char buf[1500];
-				recv(fds[FDPOS_MIP].fd, buf, 1500, 0);
+				ssize_t sb = recv(fds[FDPOS_MIP].fd, buf, 1500, 0);
+				if(debug) fprintf(stderr, "MIPTP: Recieved %zd bytes\n", sb);
 				struct mipd_packet *mp = (struct mipd_packet *)buf;
 				recvMip(mp);
 			}
@@ -104,10 +107,10 @@ int main(int argc, char *argv[]) {
 				memset(mtp, 0, rb);
 				memcpy(mtp, buf, rb);
 
-				if(debug) fprintf(stderr, "MIPTP: Incoming connection from app, port %d.", mtp->dst_port);
+				if(debug) fprintf(stderr, "MIPTP: Incoming connection from app, port %d\n", mtp->dst_port);
 
 				if(getApp(mtp->dst_port, NULL) == 0) {
-					if(debug) fprintf(stderr, " Accepted\n");
+					if(debug) fprintf(stderr, "MIPTP: Connection accepted\n");
 					int fdind = getNextFds(fds);
 
 					if(fdind == 0) {
@@ -120,7 +123,7 @@ int main(int argc, char *argv[]) {
 
 					addApp(mtp->dst_port, fdind, NULL);
 				} else {
-					if(debug) fprintf(stderr, " Rejected, port is in use\n");
+					if(debug) fprintf(stderr, "MIPTP: Connection rejected, port is in use\n");
 					close(fd);
 				}
 
@@ -129,21 +132,32 @@ int main(int argc, char *argv[]) {
 
 			struct applist *curr = NULL;
 			while(getNextApp(&curr) != 0) {
-				if(fds[curr->fdind].revents & POLLHUP) {
+				updateSeqnos(curr);
+				if(timedout(curr)) {
+					if(debug) fprintf(stderr, "MIPTP: No ACKs in %d seconds. Disconnecting app on port %d\n", totTimeout, curr->port);
+					fds[curr->fdind].revents = POLLHUP;
+				}
+
+				if(fds[curr->fdind].revents & POLLHUP && !hasSendData(curr) && !hasAckData(curr)) {
 					// App has disconnected
 					if(debug) fprintf(stderr, "MIPTP: App on port %d has disconnected\n", curr->port);
 
 					close(fds[curr->fdind].fd);
 					fds[curr->fdind].fd = -1;
-					rmApp(curr->port);
 					fds[curr->fdind].revents = 0;
+					rmApp(curr->port);
+				}
+
+				if(fds[curr->fdind].fd == -1 && doneSending(curr)) {
+					continue;
 				}
 
 				if(fds[curr->fdind].revents & POLLIN) {
 					// Incoming data on port
 					if(debug) fprintf(stderr, "MIPTP: Incoming data on port %d\n", curr->port);
 					char buf[TP_MAX_DATA+sizeof(struct miptp_packet)];
-					recv(fds[curr->fdind].fd, buf, TP_MAX_DATA+sizeof(struct miptp_packet), 0);
+					ssize_t sb = recv(fds[curr->fdind].fd, buf, TP_MAX_DATA+sizeof(struct miptp_packet), 0);
+					if(debug) fprintf(stderr, "MIPTP: Recieved %zd bytes\n", sb);
 					
 					struct miptp_packet *recvd = (struct miptp_packet *)buf;
 					recvApp(recvd, curr);
@@ -154,7 +168,8 @@ int main(int argc, char *argv[]) {
 					// Port ready for write, and has waiting data
 					struct miptp_packet *mp;
 					getAppPacket(&mp, curr);
-					send(fds[curr->fdind].fd, mp, mp->content_len, 0);
+					ssize_t sb = send(fds[curr->fdind].fd, mp, mp->content_len+sizeof(struct miptp_packet), 0);
+					if(debug) fprintf(stderr, "MIPTP: Sent %zd bytes\n", sb);
 				}
 
 				if((fds[FDPOS_MIP].revents & POLLOUT) && hasSendData(curr)) {
@@ -162,7 +177,19 @@ int main(int argc, char *argv[]) {
 					// Mip ready for write, and port has data
 					struct mipd_packet *mp;
 					getMipPacket(&mp, curr);
-					send(fds[FDPOS_MIP].fd, mp, mp->content_len, 0);
+					ssize_t sb = send(fds[FDPOS_MIP].fd, mp, mp->content_len+sizeof(struct mipd_packet), 0);
+					if(debug) fprintf(stderr, "MIPTP: Sent %zd bytes\n", sb);
+				}
+
+				if((fds[FDPOS_MIP].revents & POLLOUT) && hasAckData(curr)) {
+					if(debug) fprintf(stderr, "MIPTP: Waiting ACK from app on port %d\n", curr->port);
+					// MIP ready for write, and waiting ACK message
+					struct mipd_packet *mp;
+					getAckPacket(&mp, curr);
+
+					fprintf(stderr, "MIPTP: TO PORT %d\n", ((struct tp_packet *)mp->content)->port);
+					ssize_t sb = send(fds[FDPOS_MIP].fd, mp, mp->content_len+sizeof(struct mipd_packet), 0);
+					if(debug) fprintf(stderr, "MIPTP: Sent %zd bytes\n", sb);
 				}
 
 				curr = NULL;
@@ -188,6 +215,7 @@ uint8_t checkargs(int argc, char *argv[]) {
 		if(lmip == 0) error = 2;
 
 		timeout = atoi(argv[2]);
+		totTimeout = 5*timeout;
 		if(timeout == 0 || atoi(argv[2]) > 65535) error = 3;
 	}
 

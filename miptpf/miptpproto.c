@@ -12,7 +12,8 @@
 struct miptp_packet {
 	uint8_t dst_mip:8;
 	uint16_t dst_port:14;
-	uint16_t content_len:10;
+	uint16_t content_len:16;
+	uint8_t padding:2;
 	char content[0];
 } __attribute__ ((packed));
 

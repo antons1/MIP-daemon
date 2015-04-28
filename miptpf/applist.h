@@ -9,11 +9,13 @@ struct sendinfo {
 struct recvinfo {
 	uint32_t nextRecvSeqno;
 	struct packetlist *recvQueue;
+	struct packetlist *ackQueue;
 };
 
 struct applist {
 	uint16_t port;
 	uint8_t fdind;
+	time_t lastTimeout;
 	struct sendinfo *sendinfo;
 	struct recvinfo *recvinfo;
 	struct applist *next;

@@ -25,7 +25,7 @@ struct mllist *mlist;
 struct r_list *rlist;
 
 void readus(uint8_t, char *);
-void sendus(size_t, uint8_t, char *);
+void sendus(size_t, uint8_t, uint8_t, char *);
 int ushasmessage(uint8_t);
 int usgetmessage(uint8_t, size_t *, char **);
 void readrd(char *, size_t);
@@ -50,7 +50,7 @@ void readus(uint8_t id, char *msg) {
  * Reads a message from IPC and delegates it to correct functions
  * @param msg Recieved message
  */
-void sendus(size_t len, uint8_t id, char *msg) {
+void sendus(size_t len, uint8_t id, uint8_t src, char *msg) {
 	if(debug) fprintf(stderr, "MIPD: sendus(%zu, %d, %p)\n", len, id, msg);
 	if(mlist == NULL) {
 		mlist = malloc(sizeof(struct mllist));
@@ -66,7 +66,7 @@ void sendus(size_t len, uint8_t id, char *msg) {
 	}
 
 	struct mipd_packet *mp;
-	mipdCreatepacket(mipaddrs[0], len, msg, &mp);
+	mipdCreatepacket(src, len, msg, &mp);
 
 	addmessage((char *)mp, len+sizeof(struct mipd_packet), check);
 }
@@ -126,7 +126,7 @@ void sendrd(uint8_t src, uint8_t dst, size_t msglen, char *msg) {
 	rinf->mip = dst;
 	rinf->cost = TTL_MAX+1;
 
-	sendus(sizeof(struct route_dg)+sizeof(struct route_inf), RDID, (char *)req);
+	sendus(sizeof(struct route_dg)+sizeof(struct route_inf), RDID, mipaddrs[0], (char *)req);
 
 	if(rlist == NULL) {
 		rlist = malloc(sizeof(struct r_list));
@@ -166,7 +166,9 @@ void readrd(char *msg, size_t msglen) {
 	if(islocalmip(rd->src_mip)) {
 		// Send waiting routing packets
 		struct r_list *rl = rlist;
+		if(debug) fprintf(stderr, "MIPD: Sending waiting transports\n");
 		if(rl == NULL) return;
+		if(debug) fprintf(stderr, "MIPD: Waiting list is not empty\n");
 
 		while(rl->next != NULL) {
 			if(rl->next->fdst == rd->records[0].mip) {
