@@ -3,10 +3,15 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "../miptpf/miptpproto.h"
 #define MAX_PART_SIZE 1492
@@ -19,7 +24,7 @@ int lconn;
 
 int checkargs(int, char *[]);
 int checkNumber(int, char *, int, int);
-int senddata(char *, int);
+int senddata(char *, ssize_t);
 
 int main(int argc, char *argv[]) {
 	int args = checkargs(argc, argv);
@@ -36,9 +41,9 @@ int main(int argc, char *argv[]) {
 	sprintf(filepath, "%s/%s", path, filename);
 	printf("FILEC: Opening file %s\n", filepath);
 
-	FILE *lf = fopen(filepath, "r");
-	if(lf == NULL) {
-		perror("FILEC: Error opening file");
+	int filefd = open(filepath, O_RDONLY);
+	if(filefd == -1) {
+		perror("FILEC: Opening file");
 		return 1;
 	}
 
@@ -67,31 +72,30 @@ int main(int argc, char *argv[]) {
 	write(lconn, (char *)identify, sizeof(struct miptp_packet)+cl);
 	free(identify);
 
-	char lread;
 	char buf[MAX_PART_SIZE];
-	int i = 0;
 	int error = 0;
 
 	while(1) {
-		lread = fgetc(lf);
-		if(lread == EOF) {
-			printf("FILEC: End of file reached.\n");
-			if(i != 0) error = senddata(buf, i);
+		ssize_t rb = read(filefd, buf, MAX_PART_SIZE);
+		if(rb == -1) {
+			perror("FILEC: Reading file");
 			break;
-		}
-
-		buf[i++] = lread;
-		if(i == MAX_PART_SIZE) {
-			error = senddata(buf, i);
-			i = 0;
-			if(error == 0) break;
+		} else if(rb == 0) {
+			printf("FILEC: End of file reached\n");
+			break;
+		} else {
+			error = senddata(buf, rb);
+			if(error == 0) {
+				printf("FILEC: Error sending data\n");
+				break;
+			}
 		}
 	}
 
-	sleep(1);
+	//sleep(30);
 	
 	close(lconn);
-	fclose(lf);
+	close(filefd);
 	free(path);
 	free(filepath);
 
@@ -139,7 +143,12 @@ int checkargs(int argc, char *argv[]) {
 	else return 1;
 }
 
-int senddata(char *data, int length) {
+int senddata(char *data, ssize_t length) {
+	struct timespec waiter;
+
+	waiter.tv_sec = 0;
+	waiter.tv_nsec = 100000000;
+
 	struct miptp_packet *mp;
 	int create = miptpCreatepacket(dstmip, dstport, length, data, &mp);
 
@@ -153,8 +162,8 @@ int senddata(char *data, int length) {
 		printf("FILEC: Error creating MIPtp packet\n");
 		return 0;
 	} else {
-		printf("FILEC: Sent %zd bytes of data (said %d, got %d)\n", sb, mp->content_len, length);
-		sleep(1);
+		printf("FILEC: Sent %zd bytes of data (said %d, got %zd)\n", sb, mp->content_len, length);
+		nanosleep(&waiter, NULL);
 		return 1;
 	}
 }

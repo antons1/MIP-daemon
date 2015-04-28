@@ -16,6 +16,7 @@ struct applist {
 	uint16_t port;
 	uint8_t fdind;
 	time_t lastTimeout;
+	uint8_t disconnected;
 	struct sendinfo *sendinfo;
 	struct recvinfo *recvinfo;
 	struct applist *next;

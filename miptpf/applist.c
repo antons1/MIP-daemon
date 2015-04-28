@@ -26,6 +26,7 @@ struct applist {
 	uint16_t port;
 	uint8_t fdind;
 	time_t lastTimeout;
+	uint8_t disconnected;
 	struct sendinfo *sendinfo;
 	struct recvinfo *recvinfo;
 	struct applist *next;
@@ -50,8 +51,6 @@ int getNextApp(struct applist **ret) {
 
 	current = current->next;
 	*ret = current;
-
-	if(*ret == root) *ret = NULL;
 
 	return (*ret == NULL) ? 0 : 1;
 }
@@ -85,6 +84,7 @@ int addApp(uint16_t port, uint8_t fdind, struct applist **ret) {
 
 	srch->port = port;
 	srch->fdind = fdind;
+	srch->disconnected = 0;
 	srch->next = NULL;
 
 	initdata(srch);
@@ -103,7 +103,7 @@ int rmApp(uint16_t port) {
 		if(srch->next->port == port) {
 			struct applist *tmp = srch->next;
 			srch->next = tmp->next;
-			current = srch->next;
+			current = NULL;
 			free(tmp->sendinfo->sendQueue);
 			free(tmp->recvinfo->recvQueue);
 			free(tmp->sendinfo);

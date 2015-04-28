@@ -7,6 +7,10 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "../miptpf/miptpproto.h"
 #define F_MAX_LEN 1492
 
@@ -53,7 +57,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	FILE *fp = NULL;
+	int filefd = 0;
 	char *curpath = malloc(256);
 	memset(curpath, 0, 256);
 	if(getcwd(curpath, 256) == NULL) {
@@ -65,7 +69,6 @@ int main(int argc, char *argv[]) {
 	sprintf(filepath, "%s/%s", curpath, filename);
 
 	char buf[1500];
-	int i = 0;
 	while(1){
 		ssize_t rb = recv(sock, buf, 1500, 0);
 		if(rb <= 0) {
@@ -74,21 +77,19 @@ int main(int argc, char *argv[]) {
 		}
 
 		struct miptp_packet *tpp = (struct miptp_packet *)buf;
-		if(fp == NULL) {
-			fp = fopen(filepath, "w");
-			if(fp == NULL) {
+		if(filefd == 0) {
+			filefd = open(filepath, O_WRONLY | O_CREAT);
+			if(filefd == -1) {
 				perror("FILES: Opening file for writing");
 				break;
 			}
 		}
 
-		for(; i < tpp->content_len; i++) {
-			if(fputc(buf[i], fp) == EOF) {
-				perror("FILES: Writing character to file");
-				break;
-			}
+		ssize_t wb = write(filefd, tpp->content, tpp->content_len);
+		if(wb == -1) {
+			perror("FILES: Writing to file");
+			break;
 		}
-		i = 0;
 
 		if(tpp->content_len < F_MAX_LEN) {
 			printf("FILES: End of file reached\n");
@@ -97,16 +98,15 @@ int main(int argc, char *argv[]) {
 
 	}
 
-	free(filename);
 	free(curpath);
 	free(filepath);
-	if(fp != NULL) fclose(fp);
+	if(filefd != 0) close(filefd);
 	close(sock);
 
 	return 0;
 }
 
-int checkargs(int arcg, char *argv[]) {
+int checkargs(int argc, char *argv[]) {
 	char *errmsg = malloc(1024);
 	char *usemsg = malloc(1024);
 	int error = 0;

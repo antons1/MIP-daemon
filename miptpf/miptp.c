@@ -138,17 +138,17 @@ int main(int argc, char *argv[]) {
 					fds[curr->fdind].revents = POLLHUP;
 				}
 
-				if(fds[curr->fdind].revents & POLLHUP && !hasSendData(curr) && !hasAckData(curr)) {
+				if(fds[curr->fdind].revents & POLLHUP || timedout(curr)) {
 					// App has disconnected
 					if(debug) fprintf(stderr, "MIPTP: App on port %d has disconnected\n", curr->port);
 
-					close(fds[curr->fdind].fd);
+					curr->disconnected = 1;
 					fds[curr->fdind].fd = -1;
 					fds[curr->fdind].revents = 0;
-					rmApp(curr->port);
 				}
 
-				if(fds[curr->fdind].fd == -1 && doneSending(curr)) {
+				if((curr->disconnected && doneSending(curr) && !hasSendData(curr) && !hasAckData(curr)) || timedout(curr)) {
+					rmApp(curr->port);
 					continue;
 				}
 
