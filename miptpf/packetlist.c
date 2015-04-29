@@ -19,6 +19,8 @@ int getPacket(uint32_t, struct packetlist **, struct packetlist *);
 int getNextPacket(struct packetlist **, struct packetlist *);
 int removeNextPacket(struct packetlist *);
 int removeToSeqno(uint32_t, struct packetlist *);
+void freePacketList(struct packetlist *);
+int containsSeqno(uint32_t, struct packetlist *);
 
 int addPacket(struct tp_packet *data, uint8_t dstmip, uint16_t datalen, struct packetlist *pl) {
 	if(debug) fprintf(stderr, "MIPTP: addPacket(%p, %d, %d, %p)\n", data, dstmip, datalen, pl);
@@ -47,11 +49,12 @@ int getPacket(uint32_t seqno, struct packetlist **result, struct packetlist *pl)
 		if(pl->next->data->seqno == seqno) {
 			struct packetlist *tmp = pl->next;
 			*result = malloc(sizeof(struct packetlist));
-			memcpy(*result, tmp, sizeof(struct packetlist));
+			(*result)->datalen = tmp->datalen;
+			(*result)->dst_mip = tmp->dst_mip;
+			(*result)->next = NULL;
 
-			struct packetlist *tmp2 = *result;
-			tmp2->data = malloc(tmp->datalen);
-			memcpy(tmp2->data, tmp->data, tmp->datalen);
+			(*result)->data = malloc(tmp->datalen);
+			memcpy((*result)->data, tmp->data, tmp->datalen);
 			return 1;
 		}
 
@@ -64,7 +67,9 @@ int getPacket(uint32_t seqno, struct packetlist **result, struct packetlist *pl)
 int getNextPacket(struct packetlist **result, struct packetlist *pl) {
 	if(debug) fprintf(stderr, "MIPTP: getNextPacket(%p (%p), %p)\n", result, *result, pl);
 	*result = malloc(sizeof(struct packetlist)+pl->next->datalen);
-	memcpy(*result, pl->next, sizeof(struct packetlist)+pl->next->datalen);
+	memcpy(*result, pl->next, sizeof(struct packetlist));
+	(*result)->data = malloc(pl->next->datalen);
+	memcpy((*result)->data, pl->next->data, pl->next->datalen);
 	if(*result == NULL) return 0;
 	else return 1;
 }
@@ -102,4 +107,22 @@ int removeToSeqno(uint32_t seqno, struct packetlist *pl) {
 	}
 
 	return removed;
+}
+
+void freePacketList(struct packetlist *pl) {
+	if(pl->next != NULL) freePacketList(pl->next);
+
+	free(pl->data);
+	free(pl);
+}
+
+int containsSeqno(uint32_t seqno, struct packetlist *pl) {
+	while(pl->next != NULL) {
+		if(pl->next->data->seqno == seqno) return 1;
+		else if(pl->next->data->seqno > seqno) return 0;
+
+		pl = pl->next;
+	}
+
+	return 0;
 }

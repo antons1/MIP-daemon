@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	//sleep(30);
+	sleep(30);
 	
 	close(lconn);
 	close(filefd);

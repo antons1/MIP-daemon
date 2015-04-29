@@ -26,3 +26,4 @@ int getNextApp(struct applist **);
 int getApp(uint16_t, struct applist **);
 int addApp(uint16_t, uint8_t, struct applist **);
 int rmApp(uint16_t);
+void freeAppList(struct applist *);

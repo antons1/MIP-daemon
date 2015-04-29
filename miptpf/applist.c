@@ -38,6 +38,7 @@ int addApp(uint16_t, uint8_t, struct applist **);
 int rmApp(uint16_t);
 void initroot();
 void initdata();
+void freeAppList(struct applist *);
 
 static struct applist *root;
 static struct applist *current;
@@ -104,8 +105,9 @@ int rmApp(uint16_t port) {
 			struct applist *tmp = srch->next;
 			srch->next = tmp->next;
 			current = NULL;
-			free(tmp->sendinfo->sendQueue);
-			free(tmp->recvinfo->recvQueue);
+			freePacketList(tmp->sendinfo->sendQueue);
+			freePacketList(tmp->recvinfo->recvQueue);
+			freePacketList(tmp->recvinfo->ackQueue);
 			free(tmp->sendinfo);
 			free(tmp->recvinfo);
 			free(tmp);
@@ -149,4 +151,16 @@ void initdata(struct applist *init) {
 	init->sendinfo->sendQueue->next = NULL;
 	init->recvinfo->recvQueue->next = NULL;
 	init->recvinfo->ackQueue->next = NULL;
+}
+
+void freeAppList(struct applist *al) {
+	if(al == NULL) al = root;
+
+	if(al->next != NULL) freeAppList(al->next);
+	freePacketList(al->sendinfo->sendQueue);
+	freePacketList(al->recvinfo->recvQueue);
+	freePacketList(al->recvinfo->ackQueue);
+	free(al->sendinfo);
+	free(al->recvinfo);
+	free(al);
 }

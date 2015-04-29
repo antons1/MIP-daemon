@@ -10,3 +10,5 @@ int getPacket(uint32_t, struct packetlist **, struct packetlist *);
 int getNextPacket(struct packetlist **, struct packetlist *);
 int removeNextPacket(struct packetlist *);
 int removeToSeqno(uint32_t, struct packetlist *);
+void freePacketList(struct packetlist *);
+int containsSeqno(uint32_t, struct packetlist *);

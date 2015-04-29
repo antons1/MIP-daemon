@@ -72,6 +72,8 @@ void recvAck(struct tp_packet *recvd) {
 	app->sendinfo->lastAckTime = time(NULL);
 	if(app->lastTimeout != 0) app->lastTimeout = 0;
 
+	free(recvd);
+
 }
 
 void recvData(struct tp_packet *recvd, uint16_t datalen, uint8_t srcmip) {
@@ -92,11 +94,11 @@ void recvData(struct tp_packet *recvd, uint16_t datalen, uint8_t srcmip) {
 
 int hasSendData(struct applist *src) {
 	//if(debug) fprintf(stderr, "MIPTP: hasSendData(%p)\n", src);
-	struct packetlist *tmp = NULL;
-	getPacket(src->sendinfo->nextSendSeqno, &tmp, src->sendinfo->sendQueue);
-	if(tmp != NULL &&
+	if(containsSeqno(src->sendinfo->nextSendSeqno, src->sendinfo->sendQueue) &&
 		(((src->sendinfo->nextSendSeqno)-(src->sendinfo->lastAckSeqno)) < WINDOW_SIZE) && 
-		(src->sendinfo->nextSendSeqno < src->sendinfo->nextAddSeqno)) return 1;
+		(src->sendinfo->nextSendSeqno < src->sendinfo->nextAddSeqno)) {
+		return 1;
+	}
 	else return 0;
 }
 
@@ -134,10 +136,12 @@ void getAppPacket(struct miptp_packet **ret, struct applist *src) {
 	struct miptp_packet *result;
 	miptpCreatepacket(lmip, toget->data->port, toget->datalen-sizeof(struct tp_packet)-toget->data->pl_bits, toget->data->content, &result);
 	*ret = result;
+	free(toget->data);
+	free(toget);
 }
 
 void getMipPacket(struct mipd_packet **ret, struct applist *src) {
-	if(debug) fprintf(stderr, "MIPTP: getMipPacket(%p (%p), %p)\n", *ret, ret, src);
+	if(debug) fprintf(stderr, "MIPTP: getMipPacket()\n");
 	struct tp_packet *tpp = NULL;
 	size_t msglen;
 	uint8_t dstmip;
@@ -151,6 +155,7 @@ void getMipPacket(struct mipd_packet **ret, struct applist *src) {
 			tpp = pct->data;
 			msglen = pct->datalen;
 			dstmip = pct->dst_mip;
+			free(pct);
 		}
 	}
 
@@ -159,6 +164,7 @@ void getMipPacket(struct mipd_packet **ret, struct applist *src) {
 	struct mipd_packet *mdp = NULL;
 	if(tpp != NULL) mipdCreatepacket(dstmip, msglen, (char *)tpp, &mdp);
 	*ret = mdp;
+	free(tpp);
 }
 
 void getAckPacket(struct mipd_packet **ret, struct applist *src) {
@@ -173,6 +179,8 @@ void getAckPacket(struct mipd_packet **ret, struct applist *src) {
 
 	mipdCreatepacket(pl->dst_mip, pl->datalen, (char *)pl->data, ret);
 	removeNextPacket(src->recvinfo->ackQueue);
+	free(pl->data);
+	free(pl);
 }
 
 void updateSeqnos(struct applist *src) {
@@ -187,12 +195,15 @@ void updateSeqnos(struct applist *src) {
 }
 
 int doneSending(struct applist *src) {
-	if(src->sendinfo->nextSendSeqno == src->sendinfo->nextAddSeqno &&
-		src->sendinfo->nextSendSeqno == src->sendinfo->lastAckSeqno &&
-		!timedout(src)) return 1;
+	if(timedout(src)) return 1;
+	else if(src->sendinfo->nextSendSeqno == src->sendinfo->nextAddSeqno &&
+		src->sendinfo->lastAckSeqno == src->sendinfo->nextSendSeqno) return 1;
 	else return 0;
 }
 
 int timedout(struct applist *src) {
-	return (time(NULL)-src->sendinfo->lastAckTime) >= totTimeout ? 1 : 0;
+	time_t tot = time(NULL)-src->sendinfo->lastAckTime;
+
+	if(tot >= totTimeout) return 1;
+	else return 0;
 }

@@ -13,6 +13,7 @@
 #define WINDOW_SIZE 10
 #define FDPOS_MIP 0
 #define FDPOS_APP MAX_PORTS+1
+#define FDPOS_STDIN MAX_PORTS+2
 #define MAX_QUEUE 10
 #define TPID 2
 #define TP_MAX_DATA 1492
@@ -56,12 +57,15 @@ int main(int argc, char *argv[]) {
 	}
 
 	// Setting up FDs for poll
-	struct pollfd fds[MAX_PORTS+2];
+	struct pollfd fds[MAX_PORTS+3];
 	fds[FDPOS_MIP].fd = mipfd;
 	fds[FDPOS_MIP].events = POLLIN | POLLOUT | POLLHUP;
 
 	fds[FDPOS_APP].fd = appfd;
 	fds[FDPOS_APP].events = POLLIN;
+
+	fds[FDPOS_STDIN].fd = 0;
+	fds[FDPOS_STDIN].events = POLLHUP | POLLIN;
 
 	int i = 1;
 	for(; i <= MAX_PORTS; i++) {
@@ -71,7 +75,7 @@ int main(int argc, char *argv[]) {
 
 	// Start polling
 	while(1) {
-		nfds_t polls = MAX_PORTS+2;
+		nfds_t polls = MAX_PORTS+3;
 		int rd = poll(fds, polls, 0);
 
 		if(rd == -1) {
@@ -80,6 +84,16 @@ int main(int argc, char *argv[]) {
 		}
 
 		if(rd != 0) {
+			/*if(fds[FDPOS_STDIN].revents & POLLIN) {
+				char buf[255];
+				ssize_t rb = read(fds[FDPOS_STDIN].fd, buf, 255);
+				if(rb == 0) {
+					if(debug) fprintf(stderr, "MIPTP: Exit command recieved\n");
+					break;
+				} else {
+					if(debug) fprintf(stderr, "MIPTP: Input ignored\n");
+				}
+			}*/
 			if(fds[FDPOS_MIP].revents & POLLHUP) {
 				// MIP has disconnected
 				if(debug) fprintf(stderr, "MIPTP: MIP daemon disconnected\n");
@@ -134,20 +148,20 @@ int main(int argc, char *argv[]) {
 			while(getNextApp(&curr) != 0) {
 				updateSeqnos(curr);
 				if(timedout(curr)) {
-					if(debug) fprintf(stderr, "MIPTP: No ACKs in %d seconds. Disconnecting app on port %d\n", totTimeout, curr->port);
+					fprintf(stderr, "MIPTP: No ACKs in %d seconds. Disconnecting app on port %d\n", totTimeout, curr->port);
 					fds[curr->fdind].revents = POLLHUP;
 				}
 
 				if(fds[curr->fdind].revents & POLLHUP || timedout(curr)) {
 					// App has disconnected
-					if(debug) fprintf(stderr, "MIPTP: App on port %d has disconnected\n", curr->port);
+					fprintf(stderr, "MIPTP: App on port %d has disconnected\n", curr->port);
 
 					curr->disconnected = 1;
 					fds[curr->fdind].fd = -1;
 					fds[curr->fdind].revents = 0;
 				}
 
-				if((curr->disconnected && doneSending(curr) && !hasSendData(curr) && !hasAckData(curr)) || timedout(curr)) {
+				if((curr->disconnected && doneSending(curr) && !hasAckData(curr)) || timedout(curr)) {
 					rmApp(curr->port);
 					continue;
 				}
@@ -170,6 +184,7 @@ int main(int argc, char *argv[]) {
 					getAppPacket(&mp, curr);
 					ssize_t sb = send(fds[curr->fdind].fd, mp, mp->content_len+sizeof(struct miptp_packet), 0);
 					if(debug) fprintf(stderr, "MIPTP: Sent %zd bytes\n", sb);
+					free(mp);
 				}
 
 				if((fds[FDPOS_MIP].revents & POLLOUT) && hasSendData(curr)) {
@@ -179,6 +194,7 @@ int main(int argc, char *argv[]) {
 					getMipPacket(&mp, curr);
 					ssize_t sb = send(fds[FDPOS_MIP].fd, mp, mp->content_len+sizeof(struct mipd_packet), 0);
 					if(debug) fprintf(stderr, "MIPTP: Sent %zd bytes\n", sb);
+					free(mp);
 				}
 
 				if((fds[FDPOS_MIP].revents & POLLOUT) && hasAckData(curr)) {
@@ -190,12 +206,15 @@ int main(int argc, char *argv[]) {
 					fprintf(stderr, "MIPTP: TO PORT %d\n", ((struct tp_packet *)mp->content)->port);
 					ssize_t sb = send(fds[FDPOS_MIP].fd, mp, mp->content_len+sizeof(struct mipd_packet), 0);
 					if(debug) fprintf(stderr, "MIPTP: Sent %zd bytes\n", sb);
+					free(mp);
 				}
 
 				curr = NULL;
 			}
 		}
 	}
+
+	freeAppList(NULL);
 
 	return 0;
 }
@@ -263,7 +282,7 @@ int mipConnect() {
 	}
 
 	struct mipd_packet *identify;
-	mipdCreatepacket(TPID, 0, "", &identify);
+	mipdCreatepacket(TPID, 0, NULL, &identify);
 
 	identify->dst_mip = TPID;
 

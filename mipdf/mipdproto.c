@@ -25,7 +25,7 @@ int mipdCreatepacket(uint8_t dstm, uint16_t cl, char *msg, struct mipd_packet **
 
 	tmp->dst_mip = dstm;
 	tmp->content_len = cl;
-	memcpy(tmp->content, msg, msgsz);
+	if(msg != NULL) memcpy(tmp->content, msg, msgsz-1);
 
 	return 1;
 }
