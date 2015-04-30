@@ -159,9 +159,10 @@ int main(int argc, char *argv[]) {
 					curr->disconnected = 1;
 					fds[curr->fdind].fd = -1;
 					fds[curr->fdind].revents = 0;
+					fds[curr->fdind].events = 0;
 				}
 
-				if((curr->disconnected && doneSending(curr) && !hasAckData(curr)) || timedout(curr)) {
+				if(timedout(curr) || (!hasSendData(curr) && doneSending(curr) && !hasAckData(curr) && curr->disconnected)) {
 					rmApp(curr->port);
 					continue;
 				}

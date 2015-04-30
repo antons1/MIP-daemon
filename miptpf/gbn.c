@@ -195,15 +195,14 @@ void updateSeqnos(struct applist *src) {
 }
 
 int doneSending(struct applist *src) {
-	if(timedout(src)) return 1;
-	else if(src->sendinfo->nextSendSeqno == src->sendinfo->nextAddSeqno &&
-		src->sendinfo->lastAckSeqno == src->sendinfo->nextSendSeqno) return 1;
+	if(src->sendinfo->lastAckSeqno == src->sendinfo->nextSendSeqno && src->sendinfo->lastAckSeqno != 0) return 1;
+	else if(src->sendinfo->nextSendSeqno == 0 && src->recvinfo->nextRecvSeqno != 0) return 1;
 	else return 0;
 }
 
 int timedout(struct applist *src) {
-	time_t tot = time(NULL)-src->sendinfo->lastAckTime;
+	time_t tot = time(NULL)-src->lastTimeout;
 
-	if(tot >= totTimeout) return 1;
+	if(tot >= totTimeout && src->lastTimeout != 0) return 1;
 	else return 0;
 }
