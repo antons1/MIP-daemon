@@ -16,12 +16,12 @@ struct tp_packet {
 void tpCreatepacket(uint8_t, uint16_t, uint16_t, uint16_t, char *, struct tp_packet **);
 
 void tpCreatepacket(uint8_t pl, uint16_t port, uint16_t seqno, uint16_t msglen, char *msg, struct tp_packet **create) {
-	*create = malloc(sizeof(struct tp_packet)+msglen+pl);
-	memset(*create, 0, sizeof(struct tp_packet)+msglen+pl);
+	size_t msgsz = sizeof(struct tp_packet)+msglen+pl;
+	*create = malloc(msgsz);
+	memset(*create, 0, msgsz);
 
-	struct tp_packet *tmp = *create;
-	memcpy(tmp->content, msg, msglen);
-	tmp->pl_bits = pl;
-	tmp->port = port;
-	tmp->seqno = seqno;
+	memcpy((*create)->content, msg, msglen);
+	(*create)->pl_bits = pl;
+	(*create)->port = port;
+	(*create)->seqno = seqno;
 }

@@ -47,14 +47,7 @@ int getPacket(uint32_t seqno, struct packetlist **result, struct packetlist *pl)
 
 	while(pl->next != NULL) {
 		if(pl->next->data->seqno == seqno) {
-			struct packetlist *tmp = pl->next;
-			*result = malloc(sizeof(struct packetlist));
-			(*result)->datalen = tmp->datalen;
-			(*result)->dst_mip = tmp->dst_mip;
-			(*result)->next = NULL;
-
-			(*result)->data = malloc(tmp->datalen);
-			memcpy((*result)->data, tmp->data, tmp->datalen);
+			*result = pl->next;
 			return 1;
 		}
 
@@ -65,11 +58,9 @@ int getPacket(uint32_t seqno, struct packetlist **result, struct packetlist *pl)
 }
 
 int getNextPacket(struct packetlist **result, struct packetlist *pl) {
-	if(debug) fprintf(stderr, "MIPTP: getNextPacket(%p (%p), %p)\n", result, *result, pl);
-	*result = malloc(sizeof(struct packetlist)+pl->next->datalen);
-	memcpy(*result, pl->next, sizeof(struct packetlist));
-	(*result)->data = malloc(pl->next->datalen);
-	memcpy((*result)->data, pl->next->data, pl->next->datalen);
+	//if(debug) fprintf(stderr, "MIPTP: getNextPacket(%p (%p), %p)\n", result, *result, pl);
+	*result = pl->next;
+	
 	if(*result == NULL) return 0;
 	else return 1;
 }

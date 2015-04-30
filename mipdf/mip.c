@@ -266,7 +266,7 @@ void sendmip(uint8_t src, uint8_t via, uint8_t dst, uint8_t tra, size_t msglen, 
 	if(findhw(dsthw, via, NULL)) {
 		// Address of recipient is known, put in list
 		int miplen = (msglen+sizeof(struct mip_frame))/4;
-		if((msglen+sizeof(struct mip_frame))%4) miplen++;
+		if((msglen+sizeof(struct mip_frame))%4 > 0) miplen++;
 		struct mip_frame *mframe = malloc(miplen*4);
 		memset(mframe, 0, miplen*4);
 

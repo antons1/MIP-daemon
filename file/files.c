@@ -12,7 +12,7 @@
 #include <fcntl.h>
 
 #include "../miptpf/miptpproto.h"
-#define F_MAX_LEN 1492
+#define F_MAX_LEN 1489
 
 int checkargs(int, char *[]);
 int checknum(int, char *, int, int);
@@ -69,6 +69,7 @@ int main(int argc, char *argv[]) {
 	sprintf(filepath, "%s/%s", curpath, filename);
 
 	char buf[1500];
+	int i = 0;
 	while(1){
 		ssize_t rb = recv(sock, buf, 1500, 0);
 		if(rb <= 0) {
@@ -78,7 +79,7 @@ int main(int argc, char *argv[]) {
 
 		struct miptp_packet *tpp = (struct miptp_packet *)buf;
 		if(filefd == 0) {
-			filefd = open(filepath, O_WRONLY | O_CREAT);
+			filefd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC);
 			if(filefd == -1) {
 				perror("FILES: Opening file for writing");
 				break;
@@ -89,6 +90,8 @@ int main(int argc, char *argv[]) {
 		if(wb == -1) {
 			perror("FILES: Writing to file");
 			break;
+		} else {
+			printf("FILES: Seq %d - Recieved %zd bytes.\n", i++, wb);
 		}
 
 		if(tpp->content_len < F_MAX_LEN) {

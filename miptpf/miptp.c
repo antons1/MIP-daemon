@@ -8,6 +8,7 @@
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <signal.h>
 
 #define MAX_PORTS 10
 #define WINDOW_SIZE 10
@@ -33,8 +34,10 @@ uint8_t debug;
 uint8_t lmip;
 uint16_t timeout;
 uint16_t totTimeout;
+uint8_t shouldBreak = 0;
 
 int getNextFds(struct pollfd []);
+void sighandler(int);
 
 int main(int argc, char *argv[]) {
 	lmip = checkargs(argc, argv);
@@ -72,6 +75,8 @@ int main(int argc, char *argv[]) {
 		fds[i].fd = -1;
 		fds[i].events = 0;
 	}
+	signal(SIGINT, sighandler);
+	signal(SIGKILL, sighandler);
 
 	// Start polling
 	while(1) {
@@ -84,16 +89,9 @@ int main(int argc, char *argv[]) {
 		}
 
 		if(rd != 0) {
-			/*if(fds[FDPOS_STDIN].revents & POLLIN) {
-				char buf[255];
-				ssize_t rb = read(fds[FDPOS_STDIN].fd, buf, 255);
-				if(rb == 0) {
-					if(debug) fprintf(stderr, "MIPTP: Exit command recieved\n");
-					break;
-				} else {
-					if(debug) fprintf(stderr, "MIPTP: Input ignored\n");
-				}
-			}*/
+
+			if(shouldBreak) break;
+
 			if(fds[FDPOS_MIP].revents & POLLHUP) {
 				// MIP has disconnected
 				if(debug) fprintf(stderr, "MIPTP: MIP daemon disconnected\n");
@@ -147,11 +145,6 @@ int main(int argc, char *argv[]) {
 			struct applist *curr = NULL;
 			while(getNextApp(&curr) != 0) {
 				updateSeqnos(curr);
-				if(timedout(curr)) {
-					fprintf(stderr, "MIPTP: No ACKs in %d seconds. Disconnecting app on port %d\n", totTimeout, curr->port);
-					fds[curr->fdind].revents = POLLHUP;
-				}
-
 				if(fds[curr->fdind].revents & POLLHUP || timedout(curr)) {
 					// App has disconnected
 					fprintf(stderr, "MIPTP: App on port %d has disconnected\n", curr->port);
@@ -341,4 +334,11 @@ int getNextFds(struct pollfd fds[]) {
 	}
 
 	return 0;
+}
+
+void sighandler(int signo) {
+	if(signo == SIGKILL || signo == SIGINT) {
+		if(debug) fprintf(stderr, "MIPTP: Got shutdown signal\n");
+		shouldBreak = 1;
+	} 
 }

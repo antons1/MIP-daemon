@@ -21,11 +21,9 @@ int mipdCreatepacket(uint8_t dstm, uint16_t cl, char *msg, struct mipd_packet **
 	*ret = malloc(msgsz);
 	memset(*ret, 0, msgsz);
 
-	struct mipd_packet *tmp = *ret;
-
-	tmp->dst_mip = dstm;
-	tmp->content_len = cl;
-	if(msg != NULL) memcpy(tmp->content, msg, msgsz-1);
+	(*ret)->dst_mip = dstm;
+	(*ret)->content_len = cl;
+	if(msg != NULL) memcpy((*ret)->content, msg, cl);
 
 	return 1;
 }

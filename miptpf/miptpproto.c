@@ -27,12 +27,10 @@ int miptpCreatepacket(uint8_t dstm, uint16_t dstp, uint16_t cl, char *msg, struc
 		*create = malloc(msgsz);
 		memset(*create, 0, msgsz);
 
-		struct miptp_packet *tmp = *create;
-
-		tmp->dst_mip = dstm;
-		tmp->dst_port = dstp;
-		tmp->content_len = cl;
-		memcpy(tmp->content, msg, cl);
+		(*create)->dst_mip = dstm;
+		(*create)->dst_port = dstp;
+		(*create)->content_len = cl;
+		memcpy((*create)->content, msg, cl);
 
 		return 1;
 	}

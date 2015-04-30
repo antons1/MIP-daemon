@@ -28,9 +28,9 @@ int timedout(struct applist *);
 
 void recvApp(struct miptp_packet *recvd, struct applist *src) {
 	if(debug) fprintf(stderr, "MIPTP: recvApp(%p, %p)\n", recvd, src);
-	size_t msglen = recvd->content_len;
+	uint16_t msglen = recvd->content_len;
 
-	if(debug) fprintf(stderr, "MIPTP: Recieved length is %zd (%d)\n", msglen, recvd->content_len);
+	if(debug) fprintf(stderr, "MIPTP: Recieved length is %d (%d)\n", msglen, recvd->content_len);
 
 	struct tp_packet *tpp;
 	uint8_t pl = msglen%4;
@@ -45,7 +45,7 @@ void recvApp(struct miptp_packet *recvd, struct applist *src) {
 
 void recvMip(struct mipd_packet *recvd) {
 	if(debug) fprintf(stderr, "MIPTP: recvMip(%p)\n", recvd);
-	size_t msglen = recvd->content_len;
+	uint16_t msglen = recvd->content_len;
 
 	fprintf(stderr, "MIPTP: To port %d\n", ((struct tp_packet *)recvd->content)->port);
 
@@ -67,6 +67,8 @@ void recvAck(struct tp_packet *recvd) {
 	if(app == NULL) return;
 
 	app->sendinfo->lastAckSeqno = recvd->seqno;
+	if(app->sendinfo->lastAckSeqno < app->sendinfo->nextSendSeqno)
+		app->sendinfo->nextSendSeqno = app->sendinfo->lastAckSeqno;
 
 	if(debug) fprintf(stderr, "MIPTP: Recieved ACK, requesting seqno %d\n", app->sendinfo->lastAckSeqno);
 	app->sendinfo->lastAckTime = time(NULL);
@@ -78,7 +80,7 @@ void recvAck(struct tp_packet *recvd) {
 
 void recvData(struct tp_packet *recvd, uint16_t datalen, uint8_t srcmip) {
 	if(debug) fprintf(stderr, "MIPTP: recvData(%p, %d, %d)\n", recvd, datalen, srcmip);
-	struct applist *app;
+	struct applist *app = NULL;
 	getApp(recvd->port, &app);
 
 	if(app == NULL) return;
@@ -88,6 +90,8 @@ void recvData(struct tp_packet *recvd, uint16_t datalen, uint8_t srcmip) {
 		app->recvinfo->nextRecvSeqno++;
 		addPacket(recvd, srcmip, datalen, app->recvinfo->recvQueue);
 	}
+
+	if(app->lastTimeout != 0) app->lastTimeout = 0;
 
 	sendAck(app, recvd->port, srcmip);
 }
@@ -128,34 +132,31 @@ void sendAck(struct applist *src, uint16_t port, uint8_t srcmip) {
 }
 
 void getAppPacket(struct miptp_packet **ret, struct applist *src) {
-	if(debug) fprintf(stderr, "MIPTP: getAppPacket(%p (%p), %p)\n", *ret, ret, src);
+	//if(debug) fprintf(stderr, "MIPTP: getAppPacket(%p (%p), %p)\n", *ret, ret, src);
 	struct packetlist *toget;
 	getNextPacket(&toget, src->recvinfo->recvQueue);
-	removeToSeqno(toget->data->seqno+1, src->recvinfo->recvQueue);
 
 	struct miptp_packet *result;
 	miptpCreatepacket(lmip, toget->data->port, toget->datalen-sizeof(struct tp_packet)-toget->data->pl_bits, toget->data->content, &result);
 	*ret = result;
-	free(toget->data);
-	free(toget);
+	removeToSeqno(toget->data->seqno+1, src->recvinfo->recvQueue);
 }
 
 void getMipPacket(struct mipd_packet **ret, struct applist *src) {
 	if(debug) fprintf(stderr, "MIPTP: getMipPacket()\n");
 	struct tp_packet *tpp = NULL;
-	size_t msglen;
+	uint16_t msglen;
 	uint8_t dstmip;
+	struct packetlist *pct = NULL;
 
 	if((((src->sendinfo->nextSendSeqno)-(src->sendinfo->lastAckSeqno)) < WINDOW_SIZE) && (src->sendinfo->nextSendSeqno < src->sendinfo->nextAddSeqno)) {
 		// Window size is not reached
 		if(debug) fprintf(stderr, "MIPTP: Sending waiting data messages\n");
-		struct packetlist *pct = NULL;
 		getPacket(src->sendinfo->nextSendSeqno++, &pct, src->sendinfo->sendQueue);
 		if(pct != NULL) {
 			tpp = pct->data;
 			msglen = pct->datalen;
 			dstmip = pct->dst_mip;
-			free(pct);
 		}
 	}
 
@@ -164,7 +165,6 @@ void getMipPacket(struct mipd_packet **ret, struct applist *src) {
 	struct mipd_packet *mdp = NULL;
 	if(tpp != NULL) mipdCreatepacket(dstmip, msglen, (char *)tpp, &mdp);
 	*ret = mdp;
-	free(tpp);
 }
 
 void getAckPacket(struct mipd_packet **ret, struct applist *src) {
@@ -179,8 +179,6 @@ void getAckPacket(struct mipd_packet **ret, struct applist *src) {
 
 	mipdCreatepacket(pl->dst_mip, pl->datalen, (char *)pl->data, ret);
 	removeNextPacket(src->recvinfo->ackQueue);
-	free(pl->data);
-	free(pl);
 }
 
 void updateSeqnos(struct applist *src) {
