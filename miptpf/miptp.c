@@ -39,6 +39,12 @@ uint8_t shouldBreak = 0;
 int getNextFds(struct pollfd []);
 void sighandler(int);
 
+/**
+ * MIP-TPs main function
+ * @param  argc Number of arguments
+ * @param  argv Arguments
+ * @return      0 if everything is OK
+ */
 int main(int argc, char *argv[]) {
 	lmip = checkargs(argc, argv);
 	if(lmip == 0) return 1;
@@ -336,6 +342,10 @@ int getNextFds(struct pollfd fds[]) {
 	return 0;
 }
 
+/**
+ * Signal handler, makes sure the program frees resources on TERMINATE or INTERRUPT
+ * @param signo Given signal
+ */
 void sighandler(int signo) {
 	if(signo == SIGTERM || signo == SIGINT) {
 		if(debug) fprintf(stderr, "MIPTP: Got shutdown signal\n");

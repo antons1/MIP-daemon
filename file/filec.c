@@ -27,6 +27,12 @@ int checkargs(int, char *[]);
 int checkNumber(int, char *, int, int);
 int senddata(char *, ssize_t);
 
+/**
+ * Main function for file client
+ * @param  argc Number of arguments
+ * @param  argv Arguments given
+ * @return      0 on success
+ */
 int main(int argc, char *argv[]) {
 	int args = checkargs(argc, argv);
 	if(args == -1) return 1;
@@ -92,8 +98,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	//sleep(30);
-	
 	close(lconn);
 	close(filefd);
 	free(path);
@@ -102,12 +106,26 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+/**
+ * Checks a number agains a string to check if the parsed number is valid, and perform error checking lacking in atoi
+ * @param  res  Number to check
+ * @param  arg  String to check against
+ * @param  llim Lower limit of accepted value
+ * @param  ulim Upper limit of accepted value
+ * @return      Returns 0 if OK, 1 if not
+ */
 int checkNumber(int res, char *arg, int llim, int ulim) {
 	if(res < llim || res > ulim) return 1;
 	else if(res == 0 && strcmp(arg, "0") != 0) return 1;
 	else return 0;
 }
 
+/**
+ * Checks arguments given to program
+ * @param  argc Number of arguments
+ * @param  argv Arguments given
+ * @return      1 if OK, 0 if not
+ */
 int checkargs(int argc, char *argv[]) {
 	char *errmsg = malloc(1024);
 	char *usemsg = malloc(1024);
@@ -143,6 +161,12 @@ int checkargs(int argc, char *argv[]) {
 	else return 1;
 }
 
+/**
+ * Sends a message to the local MIP daemon
+ * @param  data   Data to send
+ * @param  length Length of data
+ * @return        1 on success, 0 on error
+ */
 int senddata(char *data, ssize_t length) {
 	struct timespec waiter;
 

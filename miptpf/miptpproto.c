@@ -20,6 +20,15 @@ struct miptp_packet {
 int miptpCreatepacket(uint8_t, uint16_t, uint16_t, char *, struct miptp_packet **);
 int miptpReadpacket(uint8_t *, uint16_t *, uint16_t *, char **, struct miptp_packet *);
 
+/**
+ * Creates a MIP-TP packet, used to send info to and from the above layer (application layer)
+ * @param  dstm   Destination MIP
+ * @param  dstp   Destination port
+ * @param  cl     Content length
+ * @param  msg    Message to be sent
+ * @param  create Where created packet is stored
+ * @return        Returns 1 on success, 0 on error
+ */
 int miptpCreatepacket(uint8_t dstm, uint16_t dstp, uint16_t cl, char *msg, struct miptp_packet **create) {
 	if(cl > MIPTP_MAX_CONTENT_LEN) return 0;
 	else {
@@ -36,6 +45,15 @@ int miptpCreatepacket(uint8_t dstm, uint16_t dstp, uint16_t cl, char *msg, struc
 	}
 }
 
+/**
+ * Reads a MIP-TP packet
+ * @param  dstm  Output destination MIP
+ * @param  dstp  Output destination port
+ * @param  cl    Output content length
+ * @param  msg   Out message
+ * @param  readp Packet to be read
+ * @return       1 on success, 0 on error
+ */
 int miptpReadpacket(uint8_t *dstm, uint16_t *dstp, uint16_t *cl, char **msg, struct miptp_packet *readp) {
 	if(readp == NULL) return 0;
 	else {

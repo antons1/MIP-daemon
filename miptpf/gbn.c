@@ -26,6 +26,11 @@ void getAckPacket(struct mipd_packet **, struct applist *);
 int doneSending(struct applist *);
 int timedout(struct applist *);
 
+/**
+ * Recieves and parses a packet from a connected application
+ * @param recvd Recieved packet
+ * @param src   Port packet was recieved from
+ */
 void recvApp(struct miptp_packet *recvd, struct applist *src) {
 	if(debug) fprintf(stderr, "MIPTP: recvApp(%p, %p)\n", recvd, src);
 	uint16_t msglen = recvd->content_len;
@@ -44,6 +49,10 @@ void recvApp(struct miptp_packet *recvd, struct applist *src) {
 	addPacket(tpp, recvd->dst_mip, totlen, src->sendinfo->sendQueue);
 }
 
+/**
+ * Recieves and parses a packet from the MIP daemon
+ * @param recvd Recieved packet
+ */
 void recvMip(struct mipd_packet *recvd) {
 	if(debug) fprintf(stderr, "MIPTP: recvMip(%p)\n", recvd);
 	uint16_t msglen = recvd->content_len;
@@ -58,6 +67,10 @@ void recvMip(struct mipd_packet *recvd) {
 	else recvData(tpp, msglen, recvd->dst_mip);
 }
 
+/**
+ * Recieves an ACK packet, updating next seqno to send if necessary
+ * @param recvd The ACK packet recieved
+ */
 void recvAck(struct tp_packet *recvd) {
 	if(debug) fprintf(stderr, "MIPTP: recvAck(%p)\n", recvd);
 	struct applist *app = NULL;
@@ -79,6 +92,12 @@ void recvAck(struct tp_packet *recvd) {
 
 }
 
+/**
+ * Recieves a datapacket, sends it to the correct app
+ * @param recvd   Recieved packet
+ * @param datalen Length of recieved data
+ * @param srcmip  Source MIP of packet
+ */
 void recvData(struct tp_packet *recvd, uint16_t datalen, uint8_t srcmip) {
 	if(debug) fprintf(stderr, "MIPTP: recvData(%p, %d, %d)\n", recvd, datalen, srcmip);
 	struct applist *app = NULL;
@@ -97,6 +116,11 @@ void recvData(struct tp_packet *recvd, uint16_t datalen, uint8_t srcmip) {
 	sendAck(app, recvd->port, srcmip);
 }
 
+/**
+ * Checks if there is any data packets to send
+ * @param  src App to check for packets in queue
+ * @return     1 if yes, 0 if no
+ */
 int hasSendData(struct applist *src) {
 	//if(debug) fprintf(stderr, "MIPTP: hasSendData(%p)\n", src);
 	if(containsSeqno(src->sendinfo->nextSendSeqno, src->sendinfo->sendQueue) &&
@@ -107,17 +131,33 @@ int hasSendData(struct applist *src) {
 	else return 0;
 }
 
+/**
+ * Checks if there is any data waiting from MIP to an app
+ * @param  src App to check
+ * @return     1 if yes, 0 if no
+ */
 int hasRecvData(struct applist *src) {
 	//if(debug) fprintf(stderr, "MIPTP: hasRecvData(%p)\n", src);
 	if(src->recvinfo->recvQueue->next != NULL) return 1;
 	else return 0;
 }
 
+/**
+ * Checks if there is any ACK packets waiting from a port
+ * @param  src Port to check
+ * @return     1 if yes, 0 if no
+ */
 int hasAckData(struct applist *src) {
 	if(src->recvinfo->ackQueue->next != NULL) return 1;
 	else return 0;
 }
 
+/**
+ * Sends an ACK packet, from given port, to given port and mip
+ * @param src    Port to send ACK from
+ * @param port   Port to send ACK to
+ * @param srcmip MIP to send ACK to
+ */
 void sendAck(struct applist *src, uint16_t port, uint8_t srcmip) {
 	if(debug) fprintf(stderr, "MIPTP: sendAck(%p, %d, %d)\n", src, port, srcmip);
 	struct tp_packet *tpp = malloc(sizeof(struct tp_packet));
@@ -132,6 +172,11 @@ void sendAck(struct applist *src, uint16_t port, uint8_t srcmip) {
 	addPacket(tpp, srcmip, sizeof(struct tp_packet), src->recvinfo->ackQueue);
 }
 
+/**
+ * Gets the next packet waiting from MIP for an APP
+ * @param ret Where returned packet is stored
+ * @param src Port to get packet from
+ */
 void getAppPacket(struct miptp_packet **ret, struct applist *src) {
 	//if(debug) fprintf(stderr, "MIPTP: getAppPacket(%p (%p), %p)\n", *ret, ret, src);
 	struct packetlist *toget;
@@ -143,6 +188,11 @@ void getAppPacket(struct miptp_packet **ret, struct applist *src) {
 	removeToSeqno(toget->data->seqno+1, src->recvinfo->recvQueue);
 }
 
+/**
+ * Gets the next packet waiting to be sent from an APP to MIP
+ * @param ret Where returned packet is stored
+ * @param src Port to get packet from
+ */
 void getMipPacket(struct mipd_packet **ret, struct applist *src) {
 	if(debug) fprintf(stderr, "MIPTP: getMipPacket()\n");
 	struct tp_packet *tpp = NULL;
@@ -168,6 +218,11 @@ void getMipPacket(struct mipd_packet **ret, struct applist *src) {
 	*ret = mdp;
 }
 
+/**
+ * Gets the next ACK packet to send from an APP
+ * @param ret Where the ACK packet is stored
+ * @param src Port to get ACK from
+ */
 void getAckPacket(struct mipd_packet **ret, struct applist *src) {
 	if(debug) fprintf(stderr, "MIPTP: getAckPacket(%p (%p), %p)\n", *ret, ret, src);
 
@@ -182,6 +237,10 @@ void getAckPacket(struct mipd_packet **ret, struct applist *src) {
 	removeNextPacket(src->recvinfo->ackQueue);
 }
 
+/**
+ * Updates the sequence numbers for an app, resetting them if timeout etc.
+ * @param src Port to update
+ */
 void updateSeqnos(struct applist *src) {
 	if((time(NULL)-src->sendinfo->lastAckTime) > timeout) {
 		// Timeout without new ack, go back to previous ack
@@ -193,12 +252,22 @@ void updateSeqnos(struct applist *src) {
 	removeToSeqno(src->sendinfo->lastAckSeqno, src->sendinfo->sendQueue);
 }
 
+/**
+ * Checks whether a port has more packets to send
+ * @param  src Port to check
+ * @return     1 if port is done, 0 if not
+ */
 int doneSending(struct applist *src) {
 	if(src->sendinfo->lastAckSeqno == src->sendinfo->nextSendSeqno && src->sendinfo->lastAckSeqno != 0) return 1;
 	else if(src->sendinfo->nextSendSeqno == 0 && src->recvinfo->nextRecvSeqno != 0) return 1;
 	else return 0;
 }
 
+/**
+ * Checks whether a port has timed out, which means that there is 5*timeout since last packet was recieved
+ * @param  src Port to check for timeout
+ * @return     1 if timed out, 0 if not
+ */
 int timedout(struct applist *src) {
 	time_t tot = time(NULL)-src->lastTimeout;
 

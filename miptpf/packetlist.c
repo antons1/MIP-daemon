@@ -22,6 +22,14 @@ int removeToSeqno(uint32_t, struct packetlist *);
 void freePacketList(struct packetlist *);
 int containsSeqno(uint32_t, struct packetlist *);
 
+/**
+ * Adds a packet to a packet list.
+ * @param  data    Packet to store
+ * @param  dstmip  Destination for stored packet
+ * @param  datalen Length of stored packet
+ * @param  pl      Packet list to add packet to
+ * @return         1 on success, 0 on error
+ */
 int addPacket(struct tp_packet *data, uint8_t dstmip, uint16_t datalen, struct packetlist *pl) {
 	if(debug) fprintf(stderr, "MIPTP: addPacket(%p, %d, %d, %p)\n", data, dstmip, datalen, pl);
 	if(pl == NULL) return 0;
@@ -39,6 +47,13 @@ int addPacket(struct tp_packet *data, uint8_t dstmip, uint16_t datalen, struct p
 	return 1;
 }
 
+/**
+ * Gets a packet from a packet list
+ * @param  seqno  Sequence number to get
+ * @param  result Where the packet is stored
+ * @param  pl     Packet list to get packet from
+ * @return        1 on success (packet found), 0 on error
+ */
 int getPacket(uint32_t seqno, struct packetlist **result, struct packetlist *pl) {
 	//if(debug) fprintf(stderr, "MIPTP: getPacket(%d, %p (%p), %p)\n", seqno, *result, result, pl);
 	if(result == NULL) return 0;
@@ -57,6 +72,12 @@ int getPacket(uint32_t seqno, struct packetlist **result, struct packetlist *pl)
 	return 0;
 }
 
+/**
+ * Gets the next packet from a packet list
+ * @param  result Where the packet is stored
+ * @param  pl     Packet list where packet is
+ * @return        1 on success, 0 on error
+ */
 int getNextPacket(struct packetlist **result, struct packetlist *pl) {
 	//if(debug) fprintf(stderr, "MIPTP: getNextPacket(%p (%p), %p)\n", result, *result, pl);
 	*result = pl->next;
@@ -65,6 +86,11 @@ int getNextPacket(struct packetlist **result, struct packetlist *pl) {
 	else return 1;
 }
 
+/**
+ * Removes the next packet from the packet list
+ * @param  pl Packet list to remove data from
+ * @return    1 on success, 0 on error
+ */
 int removeNextPacket(struct packetlist *pl) {
 	struct packetlist *toremove = pl->next;
 
@@ -78,6 +104,13 @@ int removeNextPacket(struct packetlist *pl) {
 	return 1;
 }
 
+/**
+ * Removes packets up to, but not including, given sequence number. It is assumed that
+ * packets are stored in consequtive order in the packet list
+ * @param  seqno Seqence number limit
+ * @param  pl    Packet list to delete packets from
+ * @return       0 on error, or amount of deleted packets
+ */
 int removeToSeqno(uint32_t seqno, struct packetlist *pl) {
 	//if(debug) fprintf(stderr, "MIPTP: removeToSeqno(%d, %p)\n", seqno, pl);
 	if(pl == NULL) return 0;
@@ -100,6 +133,10 @@ int removeToSeqno(uint32_t seqno, struct packetlist *pl) {
 	return removed;
 }
 
+/**
+ * Frees up all resources used for given packetlist
+ * @param pl Packet list to free
+ */
 void freePacketList(struct packetlist *pl) {
 	if(pl->next != NULL) freePacketList(pl->next);
 
@@ -107,6 +144,12 @@ void freePacketList(struct packetlist *pl) {
 	free(pl);
 }
 
+/**
+ * Checks whether a packet list contains a given sequence number
+ * @param  seqno Sequence number to search for
+ * @param  pl    Packet list to search in
+ * @return       1 if packet exists, 0 if not
+ */
 int containsSeqno(uint32_t seqno, struct packetlist *pl) {
 	while(pl->next != NULL) {
 		if(pl->next->data->seqno == seqno) return 1;

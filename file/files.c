@@ -21,6 +21,12 @@ int lmip;
 int lport;
 char *filename;
 
+/**
+ * Main function for file server
+ * @param  argc Number of arguments
+ * @param  argv The arguments
+ * @return      0 on success
+ */
 int main(int argc, char *argv[]) {
 	int args = checkargs(argc, argv);
 	if(!args) return 1;
@@ -109,6 +115,12 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
+/**
+ * Checks arguments given to program, that there are enough, and that they are valid, or prints error message
+ * @param  argc Number of arguments
+ * @param  argv Arguments given
+ * @return      0 on error, 1 on success
+ */
 int checkargs(int argc, char *argv[]) {
 	char *errmsg = malloc(1024);
 	char *usemsg = malloc(1024);
@@ -145,6 +157,14 @@ int checkargs(int argc, char *argv[]) {
 
 }
 
+/**
+ * Checks a given number agains a given string, to see if a 0 returned from atoi means a 0, or an invalid input
+ * @param  check Number to check
+ * @param  arg   String to check against
+ * @param  lval  Lower limit of accepted value
+ * @param  uval  Upper limit of accepted value
+ * @return       0 if OK, 1 if not
+ */
 int checknum(int check, char *arg, int lval, int uval) {
 	if(check < lval || check > uval) return 1;
 	else if(check == 0 && strcmp(arg, "0") != 0) return 1;
