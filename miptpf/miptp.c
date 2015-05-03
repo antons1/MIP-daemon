@@ -35,6 +35,7 @@ uint8_t lmip;
 uint16_t timeout;
 uint16_t totTimeout;
 uint8_t shouldBreak = 0;
+struct applist *approot;
 
 int getNextFds(struct pollfd []);
 void sighandler(int);
@@ -84,6 +85,11 @@ int main(int argc, char *argv[]) {
 	signal(SIGINT, sighandler);
 	signal(SIGTERM, sighandler);
 
+	approot = NULL;
+	initroot(&approot);
+
+	struct applist *curr = approot->next;
+
 	// Start polling
 	while(1) {
 		nfds_t polls = MAX_PORTS+3;
@@ -127,7 +133,7 @@ int main(int argc, char *argv[]) {
 
 				if(debug) fprintf(stderr, "MIPTP: Incoming connection from app, port %d\n", mtp->dst_port);
 
-				if(getApp(mtp->dst_port, NULL) == 0) {
+				if(getApp(mtp->dst_port, NULL, approot) == 0) {
 					if(debug) fprintf(stderr, "MIPTP: Connection accepted\n");
 					int fdind = getNextFds(fds);
 
@@ -139,7 +145,7 @@ int main(int argc, char *argv[]) {
 						fds[fdind].events = POLLIN | POLLOUT | POLLHUP;
 					}
 
-					addApp(mtp->dst_port, fdind, NULL);
+					addApp(mtp->dst_port, fdind, NULL, approot);
 				} else {
 					if(debug) fprintf(stderr, "MIPTP: Connection rejected, port is in use\n");
 					close(fd);
@@ -148,8 +154,8 @@ int main(int argc, char *argv[]) {
 				free(mtp);
 			}
 
-			struct applist *curr = NULL;
-			while(getNextApp(&curr) != 0) {
+			curr = approot->next;
+			while(curr != NULL) {
 				updateSeqnos(curr);
 				if(fds[curr->fdind].revents & POLLHUP || timedout(curr)) {
 					// App has disconnected
@@ -162,7 +168,9 @@ int main(int argc, char *argv[]) {
 				}
 
 				if(timedout(curr) || (!hasSendData(curr) && doneSending(curr) && !hasAckData(curr) && curr->disconnected)) {
-					rmApp(curr->port);
+					struct applist *tmp = curr;
+					curr = curr->next;
+					rmApp(tmp->port, approot);
 					continue;
 				}
 
@@ -209,12 +217,12 @@ int main(int argc, char *argv[]) {
 					free(mp);
 				}
 
-				curr = NULL;
+				curr = curr->next;
 			}
 		}
 	}
 
-	freeAppList(NULL);
+	freeAppList(approot);
 
 	return 0;
 }

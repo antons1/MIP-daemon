@@ -171,7 +171,7 @@ int senddata(char *data, ssize_t length) {
 	struct timespec waiter;
 
 	waiter.tv_sec = 0;
-	waiter.tv_nsec = 200000000;
+	waiter.tv_nsec = 100000000;
 
 	struct miptp_packet *mp;
 	int create = miptpCreatepacket(dstmip, dstport, length, data, &mp);

@@ -32,34 +32,16 @@ struct applist {
 	struct applist *next;
 };
 
-int getNextApp(struct applist **);
-int getApp(uint16_t, struct applist **);
-int addApp(uint16_t, uint8_t, struct applist **);
-int rmApp(uint16_t);
-void initroot();
-void initdata();
+int getApp(uint16_t, struct applist **, struct applist *);
+int addApp(uint16_t, uint8_t, struct applist **, struct applist *);
+int rmApp(uint16_t, struct applist *);
+void initroot(struct applist **);
+void initdata(struct applist *);
 void freeAppList(struct applist *);
 
-static struct applist *root;
-static struct applist *current;
-
-int getNextApp(struct applist **ret) {
-	//if(debug) fprintf(stderr, "MIPTP: getNextApp(%p (%p))\n", *ret, ret);
-	initroot();
-	if(current == NULL) {
-		current = root;
-	}
-
-	current = current->next;
-	*ret = current;
-
-	return (*ret == NULL) ? 0 : 1;
-}
-
-int getApp(uint16_t port, struct applist **ret) {
+int getApp(uint16_t port, struct applist **ret, struct applist *srch) {
 	if(debug) fprintf(stderr, "MIPTP: getApp(%d, (return parameter))\n", port);
-	initroot();
-	struct applist *srch = root;
+	
 	while(srch->next != NULL) {
 		if(srch->next->port == port) {
 			if(ret != NULL) *ret = srch->next;
@@ -72,11 +54,9 @@ int getApp(uint16_t port, struct applist **ret) {
 	return 0;
 }
 
-int addApp(uint16_t port, uint8_t fdind, struct applist **ret) {
+int addApp(uint16_t port, uint8_t fdind, struct applist **ret, struct applist *srch) {
 	if(debug) fprintf(stderr, "MIPTP: addApp(%d, %d,(Return parameter))\n", port, fdind);
-	initroot();
-
-	struct applist *srch = root;
+	
 	while(srch->next != NULL) srch = srch->next;
 
 	srch->next = malloc(sizeof(struct applist));
@@ -95,16 +75,14 @@ int addApp(uint16_t port, uint8_t fdind, struct applist **ret) {
 	return 1;
 }
 
-int rmApp(uint16_t port) {
+int rmApp(uint16_t port, struct applist *srch) {
 	if(debug) fprintf(stderr, "MIPTP: rmApp(%d)\n", port);
-	initroot();
 
-	struct applist *srch = root;
 	while(srch->next != NULL) {
 		if(srch->next->port == port) {
 			struct applist *tmp = srch->next;
 			srch->next = tmp->next;
-			current = NULL;
+			
 			freePacketList(tmp->sendinfo->sendQueue);
 			freePacketList(tmp->recvinfo->recvQueue);
 			freePacketList(tmp->recvinfo->ackQueue);
@@ -121,14 +99,14 @@ int rmApp(uint16_t port) {
 	return 0;
 }
 
-void initroot() {
-	if(root == NULL) {
+void initroot(struct applist **root) {
+	if(*root == NULL) {
 		if(debug) fprintf(stderr, "MIPTP: initroot()\n");
-		root = malloc(sizeof(struct applist));
-		memset(root, 0, sizeof(struct applist));
-		root->next = NULL;
+		*root = malloc(sizeof(struct applist));
+		memset(*root, 0, sizeof(struct applist));
+		(*root)->next = NULL;
 
-		initdata(root);
+		initdata(*root);
 	}
 }
 
@@ -154,7 +132,7 @@ void initdata(struct applist *init) {
 }
 
 void freeAppList(struct applist *al) {
-	if(al == NULL) al = root;
+	if(al == NULL) return;
 
 	if(al->next != NULL) freeAppList(al->next);
 	freePacketList(al->sendinfo->sendQueue);

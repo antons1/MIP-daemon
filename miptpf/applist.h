@@ -22,8 +22,9 @@ struct applist {
 	struct applist *next;
 };
 
-int getNextApp(struct applist **);
-int getApp(uint16_t, struct applist **);
-int addApp(uint16_t, uint8_t, struct applist **);
-int rmApp(uint16_t);
+int getApp(uint16_t, struct applist **, struct applist *);
+int addApp(uint16_t, uint8_t, struct applist **, struct applist *);
+int rmApp(uint16_t, struct applist *);
+void initroot(struct applist **);
+void initdata(struct applist *);
 void freeAppList(struct applist *);
