@@ -67,8 +67,10 @@ void sendus(size_t len, uint8_t id, uint8_t src, char *msg) {
 
 	struct mipd_packet *mp;
 	mipdCreatepacket(src, len, msg, &mp);
+	free(msg);
 
 	addmessage((char *)mp, len+sizeof(struct mipd_packet), check);
+	free(mp);
 }
 
 /**
@@ -179,6 +181,7 @@ void readrd(char *msg, size_t msglen) {
 				if(rd->records[0].cost < 16) sendtransport(rd->src_mip, rd->local_mip, rd->records[0].mip, rl->next->msglen, rl->next->msg);
 				struct r_list *tmp = rl->next;
 				rl->next = rl->next->next;
+				free(tmp->msg);
 				free(tmp);
 			}
 
@@ -228,4 +231,9 @@ void rinserdlist() {
  */
 void clearus() {
 	clearmlist(mlist);
+}
+
+void clearrlist() {
+	rinserdlist();
+	free(rlist);
 }

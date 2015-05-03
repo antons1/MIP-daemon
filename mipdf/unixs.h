@@ -11,3 +11,4 @@ void clearus();
 void reard(char *, size_t);
 void sendrd(uint8_t, uint8_t, size_t, char *);
 void rinserdlist();
+void clearrlist();

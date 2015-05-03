@@ -49,13 +49,13 @@ int addmessage(char *amsg, size_t msglen, struct messagelist *root) {
  * @return      1 on success, 0 on failure
  */
 int getmessage(char **amsg, size_t *msglen, struct messagelist *root) {
-	if(debug) fprintf(stderr, "MIPD: getmessage(%p (%p), %p)\n", amsg, *amsg, root);
+	if(debug) fprintf(stderr, "MIPD: getmessage()\n");
 	if(root == NULL) return 0;
 	if(root->next == NULL) return 0;
 
-	if(debug) fprintf(stderr, "MIPD: Retrieving message from messagelist\n");
 
 	struct messagelist *tmp = root->next;
+	if(debug) fprintf(stderr, "MIPD: SIZE %zd - Retrieving message from messagelist\n", tmp->msgsize);
 
 	*amsg = malloc(tmp->msgsize);
 	memcpy(*amsg, tmp->msg, tmp->msgsize);

@@ -33,7 +33,8 @@ void recvApp(struct miptp_packet *recvd, struct applist *src) {
 	if(debug) fprintf(stderr, "MIPTP: Recieved length is %d (%d)\n", msglen, recvd->content_len);
 
 	struct tp_packet *tpp;
-	uint8_t pl = msglen%4;
+	uint8_t pl = 4-(msglen%4);
+	if(pl == 4) pl = 0;
 
 	if(src->sendinfo->nextAddSeqno == 0) src->sendinfo->lastAckTime = time(NULL);
 

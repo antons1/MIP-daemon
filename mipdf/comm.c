@@ -21,8 +21,8 @@ void checketh(struct pollfd fd, uint8_t src) {
 	if(fd.revents & POLLIN) {
 		// Data incoming on ethernet socket
 		if(debug) fprintf(stderr, "MIPD: Recieving data on ethernet socket, MIP %d\n", src);
-		char buf[MIP_MAX_LEN];
-		ssize_t rb = recv(fd.fd, buf, MIP_MAX_LEN, 0);
+		char buf[MIP_MAX_LEN+sizeof(struct eth_frame)];
+		ssize_t rb = recv(fd.fd, buf, MIP_MAX_LEN+sizeof(struct eth_frame), 0);
 		if(rb == -1) perror("MIPD: Error reading ethernet socket");
 		else {
 			readmip(buf, src);

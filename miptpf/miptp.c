@@ -76,7 +76,7 @@ int main(int argc, char *argv[]) {
 		fds[i].events = 0;
 	}
 	signal(SIGINT, sighandler);
-	signal(SIGKILL, sighandler);
+	signal(SIGTERM, sighandler);
 
 	// Start polling
 	while(1) {
@@ -337,7 +337,7 @@ int getNextFds(struct pollfd fds[]) {
 }
 
 void sighandler(int signo) {
-	if(signo == SIGKILL || signo == SIGINT) {
+	if(signo == SIGTERM || signo == SIGINT) {
 		if(debug) fprintf(stderr, "MIPTP: Got shutdown signal\n");
 		shouldBreak = 1;
 	} 

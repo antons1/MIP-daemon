@@ -182,11 +182,11 @@ void readtransport(struct mip_frame *frame) {
 	// Pass on to ping
 
 	size_t msglen = ((frame->content_len)*4)-sizeof(struct mip_frame);
+	if(debug) fprintf(stderr, "MIPD: RECIEVED LEN: %zd\n", msglen);
  	char *msg = malloc(msglen);
  	memset(msg, 0, msglen);
  	memcpy(msg, frame->content, msglen);
 
- 	
  	sendus(msglen, TPID, frame->src_addr, msg);
 
 }
@@ -307,6 +307,7 @@ void sendmip(uint8_t src, uint8_t via, uint8_t dst, uint8_t tra, size_t msglen, 
 		struct messagelist *srclist;
 		getmlist(src, mlist, &srclist);
 		addmessage((char *)eframe, sizeof(struct eth_frame)+(miplen*4), srclist);
+		free(eframe);
 
 	} else {
 		// Address of recipient is unknown, send arp
@@ -385,6 +386,7 @@ void sendroute(uint8_t src, int16_t via, int16_t dst, size_t msglen, char *msg) 
 		addmessage((char *)eframe, sizeof(struct eth_frame)+miplen*4, srclist);
 
 		free(mframe);
+		free(eframe);
 
 	} else sendmip(src, via, dst, TRA_R, msglen, msg);
 }
@@ -499,7 +501,7 @@ void clearalist(struct arp_list *root) {
  * Releases all resources bound by MIP protocol
  */
 void clearmip() {
-	clearmlist(NULL);
+	clearmlist(mlist);
 	clearalist(NULL);
 }
 

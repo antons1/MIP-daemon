@@ -14,7 +14,7 @@
 #include <fcntl.h>
 
 #include "../miptpf/miptpproto.h"
-#define MAX_PART_SIZE 1489
+#define MAX_PART_SIZE 1492
 
 uint8_t lmip;
 uint8_t dstmip;

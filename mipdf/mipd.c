@@ -13,6 +13,7 @@
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <signal.h>
 
 // Local
 #include "mip.h"
@@ -36,10 +37,18 @@ int setupethsocket(struct pollfd *);
 int setupunixsocket();
 int checkargs(int, char *[]);
 void printhwaddr(char *);
+void sighandler(int);
 
 char debug = 0;				// Whether debug mode is active
 uint8_t mipaddrs[MAX_MIPS];	// MIP address of this daemon
 int nomips = 0;
+int shouldBreak = 0;
+
+void sighandler(int signo) {
+	if(signo == SIGTERM || signo == SIGINT) {
+		shouldBreak = 1;
+	}
+}
 
 /**
  * Main
@@ -93,6 +102,9 @@ int main(int argc, char *argv[]) {
 		fds[uds].events = POLLIN | POLLOUT | POLLHUP;
 	}
 
+	signal(SIGTERM, sighandler);
+	signal(SIGINT, sighandler);
+
 	// Enter loop
 	while(1) {
 		int rd = poll(fds, MAX_SOCKETS+MAX_MIPS, 0);
@@ -104,6 +116,8 @@ int main(int argc, char *argv[]) {
 			perror("poll()");
 			break;
 		}
+
+		if(shouldBreak) break;
 
 		// Check ethernet socket
 		int ceths = 0;
@@ -189,6 +203,7 @@ int main(int argc, char *argv[]) {
 	clearmip();
 	freemap(NULL);
 	clearus();
+	clearrlist();
 
 	return 0;
 }

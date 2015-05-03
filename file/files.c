@@ -12,7 +12,7 @@
 #include <fcntl.h>
 
 #include "../miptpf/miptpproto.h"
-#define F_MAX_LEN 1489
+#define F_MAX_LEN 1492
 
 int checkargs(int, char *[]);
 int checknum(int, char *, int, int);
