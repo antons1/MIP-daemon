@@ -11,4 +11,5 @@ void getMipPacket(struct mipd_packet **, struct applist *);
 void getAckPacket(struct mipd_packet **, struct applist *);
 void updateSeqnos(struct applist *);
 int doneSending(struct applist *);
+int doneRecieving(struct applist *);
 int timedout(struct applist *);

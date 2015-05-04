@@ -24,6 +24,7 @@ void getAppPacket(struct miptp_packet **, struct applist *);
 void getMipPacket(struct mipd_packet **, struct applist *);
 void getAckPacket(struct mipd_packet **, struct applist *);
 int doneSending(struct applist *);
+int doneRecieving(struct applist *);
 int timedout(struct applist *);
 
 /**
@@ -81,8 +82,6 @@ void recvAck(struct tp_packet *recvd) {
 	if(app == NULL) return;
 
 	app->sendinfo->lastAckSeqno = recvd->seqno;
-	if(app->sendinfo->lastAckSeqno < app->sendinfo->nextSendSeqno)
-		app->sendinfo->nextSendSeqno = app->sendinfo->lastAckSeqno;
 
 	if(debug) fprintf(stderr, "MIPTP: Recieved ACK, requesting seqno %d\n", app->sendinfo->lastAckSeqno);
 	app->sendinfo->lastAckTime = time(NULL);
@@ -123,12 +122,15 @@ void recvData(struct tp_packet *recvd, uint16_t datalen, uint8_t srcmip) {
  */
 int hasSendData(struct applist *src) {
 	//if(debug) fprintf(stderr, "MIPTP: hasSendData(%p)\n", src);
+	int nextSend = src->sendinfo->nextSendSeqno;
+	int lastAck = src->sendinfo->lastAckSeqno;
+	int window = nextSend-WINDOW_SIZE;
+
 	if(containsSeqno(src->sendinfo->nextSendSeqno, src->sendinfo->sendQueue) &&
-		(((src->sendinfo->nextSendSeqno)-(src->sendinfo->lastAckSeqno)) < WINDOW_SIZE) && 
-		(src->sendinfo->nextSendSeqno < src->sendinfo->nextAddSeqno)) {
-		return 1;
-	}
+		window <= lastAck) return 1;
 	else return 0;
+
+	return 0;
 }
 
 /**
@@ -195,27 +197,15 @@ void getAppPacket(struct miptp_packet **ret, struct applist *src) {
  */
 void getMipPacket(struct mipd_packet **ret, struct applist *src) {
 	if(debug) fprintf(stderr, "MIPTP: getMipPacket()\n");
-	struct tp_packet *tpp = NULL;
-	uint16_t msglen;
-	uint8_t dstmip;
+
 	struct packetlist *pct = NULL;
+	*ret = NULL;
 
-	if((((src->sendinfo->nextSendSeqno)-(src->sendinfo->lastAckSeqno)) < WINDOW_SIZE) && (src->sendinfo->nextSendSeqno < src->sendinfo->nextAddSeqno)) {
-		// Window size is not reached
-		if(debug) fprintf(stderr, "MIPTP: Sending waiting data messages\n");
-		getPacket(src->sendinfo->nextSendSeqno++, &pct, src->sendinfo->sendQueue);
-		if(pct != NULL) {
-			tpp = pct->data;
-			msglen = pct->datalen;
-			dstmip = pct->dst_mip;
-		}
-	}
+	getPacket(src->sendinfo->nextSendSeqno++, &pct, src->sendinfo->sendQueue);
+	if(debug) fprintf(stderr, "MIPTP: Got packet of size %d to MIP %d\n", pct->datalen, pct->dst_mip);
+	if(pct != NULL) mipdCreatepacket(pct->dst_mip, pct->datalen, (char *)pct->data, ret);
 
-	if(debug) fprintf(stderr, "MIPTP: nSend: %d | nAdd: %d | lAck: %d\n", src->sendinfo->nextSendSeqno, src->sendinfo->nextAddSeqno, src->sendinfo->lastAckSeqno);
-
-	struct mipd_packet *mdp = NULL;
-	if(tpp != NULL) mipdCreatepacket(dstmip, msglen, (char *)tpp, &mdp);
-	*ret = mdp;
+	if(debug) fprintf(stderr, "MIPTP: STATE: Next Send %d | Next Add %d | Last Ack %d\n", src->sendinfo->nextSendSeqno, src->sendinfo->nextAddSeqno, src->sendinfo->lastAckSeqno);
 }
 
 /**
@@ -244,9 +234,17 @@ void getAckPacket(struct mipd_packet **ret, struct applist *src) {
 void updateSeqnos(struct applist *src) {
 	if((time(NULL)-src->sendinfo->lastAckTime) > timeout) {
 		// Timeout without new ack, go back to previous ack
+		if(debug) fprintf(stderr, "MIPTP: Timeout! No ACKs in last %ds, reset window.\n", timeout);
 		src->sendinfo->nextSendSeqno = src->sendinfo->lastAckSeqno;
 		src->sendinfo->lastAckTime = time(NULL);
 		if(src->lastTimeout == 0) src->lastTimeout = time(NULL);
+	}
+
+	int nextSend = src->sendinfo->nextSendSeqno;
+	int lastAck = src->sendinfo->lastAckSeqno;
+	int window = nextSend-WINDOW_SIZE;
+	if(window >= lastAck) {
+		src->sendinfo->nextSendSeqno = src->sendinfo->lastAckSeqno;
 	}
 	
 	removeToSeqno(src->sendinfo->lastAckSeqno, src->sendinfo->sendQueue);
@@ -258,9 +256,20 @@ void updateSeqnos(struct applist *src) {
  * @return     1 if port is done, 0 if not
  */
 int doneSending(struct applist *src) {
-	if(src->sendinfo->lastAckSeqno == src->sendinfo->nextSendSeqno && src->sendinfo->lastAckSeqno != 0) return 1;
-	else if(src->sendinfo->nextSendSeqno == 0 && src->recvinfo->nextRecvSeqno != 0) return 1;
+	if(src->disconnected &&
+		!hasSendData(src) &&
+		src->sendinfo->nextSendSeqno == src->sendinfo->nextAddSeqno &&
+		src->sendinfo->nextSendSeqno == src->sendinfo->lastAckSeqno) return 1;
 	else return 0;
+
+	return 0;
+}
+
+int doneRecieving(struct applist *src) {
+	if(!hasAckData(src) && src->disconnected) return 1;
+	else return 0;
+
+	return 0;
 }
 
 /**

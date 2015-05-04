@@ -157,24 +157,27 @@ int main(int argc, char *argv[]) {
 			curr = approot->next;
 			while(curr != NULL) {
 				updateSeqnos(curr);
-				if(fds[curr->fdind].revents & POLLHUP || timedout(curr)) {
+				if(fds[curr->fdind].revents & POLLHUP && !curr->disconnected) {
 					// App has disconnected
 					fprintf(stderr, "MIPTP: App on port %d has disconnected\n", curr->port);
 
 					curr->disconnected = 1;
-					fds[curr->fdind].fd = -1;
-					fds[curr->fdind].revents = 0;
-					fds[curr->fdind].events = 0;
 				}
 
-				if(timedout(curr) || (!hasSendData(curr) && doneSending(curr) && !hasAckData(curr) && curr->disconnected)) {
+				if(timedout(curr) || (doneSending(curr) && doneRecieving(curr))) {
+					if(debug) fprintf(stderr, "MIPTP: App finished or timedout. Timeout: %d\n", timedout(curr));
 					struct applist *tmp = curr;
 					curr = curr->next;
+
+					close(fds[tmp->fdind].fd);
+					fds[tmp->fdind].events = 0;
+					fds[tmp->fdind].revents = 0;
+					fds[tmp->fdind].fd = -1;
 					rmApp(tmp->port, approot);
 					continue;
 				}
 
-				if(fds[curr->fdind].revents & POLLIN) {
+				if(fds[curr->fdind].revents & POLLIN && !curr->disconnected) {
 					// Incoming data on port
 					if(debug) fprintf(stderr, "MIPTP: Incoming data on port %d\n", curr->port);
 					char buf[TP_MAX_DATA+sizeof(struct miptp_packet)];
@@ -185,7 +188,7 @@ int main(int argc, char *argv[]) {
 					recvApp(recvd, curr);
 				}
 
-				if((fds[curr->fdind].revents & POLLOUT) && hasRecvData(curr)) {
+				if((fds[curr->fdind].revents & POLLOUT) && hasRecvData(curr) && !curr->disconnected) {
 					if(debug) fprintf(stderr, "MIPTP: Data waiting for app on port %d\n", curr->port);
 					// Port ready for write, and has waiting data
 					struct miptp_packet *mp;
