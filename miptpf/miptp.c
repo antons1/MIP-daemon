@@ -181,15 +181,18 @@ int main(int argc, char *argv[]) {
 					continue;
 				}
 
-				if(fds[curr->fdind].revents & POLLIN && !curr->disconnected) {
+				if(fds[curr->fdind].revents & POLLIN) {
 					// Incoming data on port
 					if(debug) fprintf(stderr, "MIPTP: Incoming data on port %d\n", curr->port);
 					char buf[TP_MAX_DATA+sizeof(struct miptp_packet)];
 					ssize_t sb = recv(fds[curr->fdind].fd, buf, TP_MAX_DATA+sizeof(struct miptp_packet), 0);
-					if(debug) fprintf(stderr, "MIPTP: Recieved %zd bytes\n", sb);
 					
-					struct miptp_packet *recvd = (struct miptp_packet *)buf;
-					recvApp(recvd, curr);
+					if(sb != 0) {
+						if(debug) fprintf(stderr, "MIPTP: Recieved %zd bytes\n", sb);
+					
+						struct miptp_packet *recvd = (struct miptp_packet *)buf;
+						recvApp(recvd, curr);
+					}
 				}
 
 				if((fds[curr->fdind].revents & POLLOUT) && hasRecvData(curr) && !curr->disconnected) {
@@ -230,7 +233,7 @@ int main(int argc, char *argv[]) {
 				curr = curr->next;
 				struct timespec waiter;
 				waiter.tv_sec = 0;
-				waiter.tv_nsec = 200000100;
+				waiter.tv_nsec = 100000000;
 
 				nanosleep(&waiter, NULL);
 			}

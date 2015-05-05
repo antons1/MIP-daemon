@@ -83,32 +83,32 @@ def Config(net, args):
     AB = A.intf(A.name+'-eth0')
     BA = B.intf(B.name+'-eth0')
     
-    AB.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
-    BA.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
+    AB.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
+    BA.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
     
     BC = B.intf(B.name+'-eth1')
     CB = C.intf(C.name+'-eth0')
     
-    BC.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
-    CB.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
+    BC.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
+    CB.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
     
     BD = B.intf(B.name+'-eth2')
     DB = D.intf(D.name+'-eth0')
     
-    BD.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
-    DB.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
+    BD.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
+    DB.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
     
     CD = C.intf(C.name+'-eth1')
     DC = D.intf(D.name+'-eth1')
     
-    CD.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
-    DC.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
+    CD.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
+    DC.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
     
     DE = D.intf(D.name+'-eth2')
     ED = E.intf(E.name+'-eth0')
     
-    DE.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
-    ED.config(bw=10, delay='10ms', loss=0.0, use_tbf=False)
+    DE.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
+    ED.config(bw=10, delay='10ms', loss=10.0, use_tbf=False)
     
     
     #Enter commands here 

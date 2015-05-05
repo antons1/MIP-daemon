@@ -9,3 +9,6 @@ he2.sublime-project
 *.sublime*
 *.o
 socket*
+*.txt
+*.jpg
+!readme.txt

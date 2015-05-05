@@ -98,12 +98,12 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	//sleep(60);
 	close(lconn);
 	close(filefd);
 	free(path);
 	free(filepath);
 
-	sleep(10);
 
 	return 0;
 }
@@ -173,7 +173,7 @@ int senddata(char *data, ssize_t length) {
 	struct timespec waiter;
 
 	waiter.tv_sec = 0;
-	waiter.tv_nsec = 200000000;
+	waiter.tv_nsec = 100000000;
 
 	struct miptp_packet *mp;
 	int create = miptpCreatepacket(dstmip, dstport, length, data, &mp);
@@ -188,7 +188,7 @@ int senddata(char *data, ssize_t length) {
 		printf("FILEC: Error creating MIPtp packet\n");
 		return 0;
 	} else {
-		printf("FILEC: Seq %d - Sent %zd bytes of data (said %d, got %zd)\n", i++, sb, mp->content_len, length);
+		printf("FILEC: Seq %d - Sent %zd bytes of data (said %d, got %zd)\r", i++, sb, mp->content_len, length);
 		nanosleep(&waiter, NULL);
 		return 1;
 	}
