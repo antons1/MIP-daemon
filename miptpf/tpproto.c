@@ -29,7 +29,7 @@ void tpCreatepacket(uint8_t pl, uint16_t port, uint16_t seqno, uint16_t msglen, 
 	*create = malloc(msgsz);
 	memset(*create, 0, msgsz);
 
-	memcpy((*create)->content, msg, msglen);
+	if(msg != NULL) memcpy((*create)->content, msg, msglen);
 	(*create)->pl_bits = pl;
 	(*create)->port = port;
 	(*create)->seqno = seqno;

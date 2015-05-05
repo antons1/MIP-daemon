@@ -15,6 +15,7 @@
 
 struct r_list {
 	uint8_t fdst;
+	uint8_t osrc;
 	char *msg;
 	time_t sent;
 	size_t msglen;
@@ -143,6 +144,7 @@ void sendrd(uint8_t src, uint8_t dst, size_t msglen, char *msg) {
 	memset(tmp->msg, 0, msglen);
 	memcpy(tmp->msg, msg, msglen);
 	tmp->fdst = dst;
+	tmp->osrc = src;
 	tmp->sent = time(NULL);
 	tmp->msglen = msglen;
 
@@ -178,7 +180,7 @@ void readrd(char *msg, size_t msglen) {
 					struct route_dg *mp = (struct route_dg *)rl->next->msg;
 					fprintf(stderr, "MIPD: Sending message: To %d, length %u\n", mp->local_mip, mp->records_len);
 				}
-				if(rd->records[0].cost < 16) sendtransport(rd->src_mip, rd->local_mip, rd->records[0].mip, rl->next->msglen, rl->next->msg);
+				if(rd->records[0].cost < 16) sendtransport(rl->next->osrc, rd->src_mip, rd->local_mip, rd->records[0].mip, rl->next->msglen, rl->next->msg);
 				struct r_list *tmp = rl->next;
 				rl->next = rl->next->next;
 				free(tmp->msg);

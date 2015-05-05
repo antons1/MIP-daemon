@@ -2,7 +2,8 @@ struct sendinfo {
 	uint32_t nextSendSeqno;
 	uint32_t nextAddSeqno;
 	time_t lastAckTime;
-	uint32_t lastAckSeqno;
+	uint32_t seqBase;
+	uint32_t seqMax;
 	struct packetlist *sendQueue;
 };
 

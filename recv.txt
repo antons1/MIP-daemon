@@ -194,6 +194,4 @@ Suspendisse mollis eu purus quis dictum. Nullam erat eros, rutrum at ligula sed,
 
 In finibus non nulla ut venenatis. Sed tempus porta eleifend. Mauris pretium posuere libero euismod venenatis. Aliquam viverra ex urna, nec suscipit lorem tincidunt a. Donec nec dapibus eros. Cras vitae scelerisque felis, vel iaculis massa. Aenean tellus lorem, porta quis leo vitae, sollicitudin eleifend ante. Praesent ut velit aliquet urna tincidunt fermentum.
 
-Donec et malesuada mauris. Cras non dolor lectus. Donec sed tellus sapien. Nullam semper urna nec dui elementum sollicitudin. Duis gravida vestibulum tellus, quis mollis mi rutrum quis. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Nunc vitae lorem sit amet tortor laoreet finibus eu a odio.
-
-Aliquam erat volutpat. Cras a arcu ac nulla ultrices pellentesque vitae sed quam. Mauris ut semper quam. Sed convallis tempus magna, sed semper velit accumsan a. Vestibulum aliquet eleifend mi eu rutrum. Fusce et varius purus nullam. 
+Donec et malesuada mauris. Cras non dolor lectus

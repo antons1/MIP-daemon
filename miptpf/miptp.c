@@ -36,6 +36,9 @@ uint16_t timeout;
 uint16_t totTimeout;
 uint8_t shouldBreak = 0;
 struct applist *approot;
+uint8_t seqnodb = 0;
+int sentp = 0;
+int recvp = 0;
 
 int getNextFds(struct pollfd []);
 void sighandler(int);
@@ -119,6 +122,7 @@ int main(int argc, char *argv[]) {
 				if(debug) fprintf(stderr, "MIPTP: Recieved %zd bytes\n", sb);
 				struct mipd_packet *mp = (struct mipd_packet *)buf;
 				recvMip(mp);
+				recvp++;
 			}
 
 			if(fds[FDPOS_APP].revents & POLLIN) {
@@ -159,7 +163,7 @@ int main(int argc, char *argv[]) {
 				updateSeqnos(curr);
 				if(fds[curr->fdind].revents & POLLHUP && !curr->disconnected) {
 					// App has disconnected
-					fprintf(stderr, "MIPTP: App on port %d has disconnected\n", curr->port);
+					if(debug) fprintf(stderr, "MIPTP: App on port %d has disconnected\n", curr->port);
 
 					curr->disconnected = 1;
 				}
@@ -204,8 +208,10 @@ int main(int argc, char *argv[]) {
 					struct mipd_packet *mp;
 					getMipPacket(&mp, curr);
 					ssize_t sb = send(fds[FDPOS_MIP].fd, mp, mp->content_len+sizeof(struct mipd_packet), 0);
+					//fprintf(stderr, "MIPTP: SEN %d DST %d\n", ((struct tp_packet *)mp->content)->seqno, mp->dst_mip);
 					if(debug) fprintf(stderr, "MIPTP: Sent %zd bytes\n", sb);
 					free(mp);
+					sentp++;
 				}
 
 				if((fds[FDPOS_MIP].revents & POLLOUT) && hasAckData(curr)) {
@@ -213,19 +219,27 @@ int main(int argc, char *argv[]) {
 					// MIP ready for write, and waiting ACK message
 					struct mipd_packet *mp;
 					getAckPacket(&mp, curr);
+					//fprintf(stderr, "MIPTP: ACK %d DST %d\n", ((struct tp_packet *)mp->content)->seqno, mp->dst_mip);
 
-					fprintf(stderr, "MIPTP: TO PORT %d\n", ((struct tp_packet *)mp->content)->port);
 					ssize_t sb = send(fds[FDPOS_MIP].fd, mp, mp->content_len+sizeof(struct mipd_packet), 0);
 					if(debug) fprintf(stderr, "MIPTP: Sent %zd bytes\n", sb);
 					free(mp);
+					sentp++;
 				}
 
 				curr = curr->next;
+				struct timespec waiter;
+				waiter.tv_sec = 0;
+				waiter.tv_nsec = 200000100;
+
+				nanosleep(&waiter, NULL);
 			}
 		}
 	}
 
 	freeAppList(approot);
+
+	if(debug) fprintf(stderr, "SENT: %d | RECV: %d\n", sentp, recvp);
 
 	return 0;
 }

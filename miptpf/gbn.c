@@ -44,6 +44,7 @@ void recvApp(struct miptp_packet *recvd, struct applist *src) {
 
 	if(src->sendinfo->nextAddSeqno == 0) src->sendinfo->lastAckTime = time(NULL);
 
+	if(debug || seqnodb) fprintf(stderr, "MIPTP: Recieved packet assigned SEQNO %d\n", src->sendinfo->nextAddSeqno);
 	tpCreatepacket(pl, recvd->dst_port, src->sendinfo->nextAddSeqno++, msglen, recvd->content, &tpp);
 	uint16_t totlen = sizeof(struct tp_packet)+msglen+pl;
 
@@ -58,7 +59,7 @@ void recvMip(struct mipd_packet *recvd) {
 	if(debug) fprintf(stderr, "MIPTP: recvMip(%p)\n", recvd);
 	uint16_t msglen = recvd->content_len;
 
-	fprintf(stderr, "MIPTP: To port %d\n", ((struct tp_packet *)recvd->content)->port);
+	if(debug) fprintf(stderr, "MIPTP: To port %d\n", ((struct tp_packet *)recvd->content)->port);
 
 	struct tp_packet *tpp = malloc(msglen);
 	memset(tpp, 0, msglen);
@@ -77,13 +78,17 @@ void recvAck(struct tp_packet *recvd) {
 	struct applist *app = NULL;
 	getApp(recvd->port, &app, approot);
 
-	if(debug) fprintf(stderr, "MIPTP: ACK to port %d, app is %p\n", recvd->port, app);
+	if(debug || seqnodb) fprintf(stderr, "MIPTP: ACK to port %d, app is %p\n", recvd->port, app);
+	//fprintf(stderr, "MIPTP: R-ACK %d FROM %d\n", recvd->seqno, 0);
 
 	if(app == NULL) return;
 
-	app->sendinfo->lastAckSeqno = recvd->seqno;
+	if(recvd->seqno > app->sendinfo->seqBase) {
+		app->sendinfo->seqMax += (recvd->seqno-app->sendinfo->seqBase);
+		app->sendinfo->seqBase = recvd->seqno;
+	}
 
-	if(debug) fprintf(stderr, "MIPTP: Recieved ACK, requesting seqno %d\n", app->sendinfo->lastAckSeqno);
+	if(debug || seqnodb) fprintf(stderr, "MIPTP: Recieved ACK, requesting seqno %d\n", recvd->seqno);
 	app->sendinfo->lastAckTime = time(NULL);
 	if(app->lastTimeout != 0) app->lastTimeout = 0;
 
@@ -112,6 +117,9 @@ void recvData(struct tp_packet *recvd, uint16_t datalen, uint8_t srcmip) {
 
 	if(app->lastTimeout != 0) app->lastTimeout = 0;
 
+	if(debug || seqnodb) fprintf(stderr, "MIPTP: Recieved data with SEQNO %d\n", recvd->seqno);
+	//fprintf(stderr, "MIPTP: R-DAT %d FROM %d\n", recvd->seqno, srcmip);
+
 	sendAck(app, recvd->port, srcmip);
 }
 
@@ -122,12 +130,9 @@ void recvData(struct tp_packet *recvd, uint16_t datalen, uint8_t srcmip) {
  */
 int hasSendData(struct applist *src) {
 	//if(debug) fprintf(stderr, "MIPTP: hasSendData(%p)\n", src);
-	int nextSend = src->sendinfo->nextSendSeqno;
-	int lastAck = src->sendinfo->lastAckSeqno;
-	int window = nextSend-WINDOW_SIZE;
-
 	if(containsSeqno(src->sendinfo->nextSendSeqno, src->sendinfo->sendQueue) &&
-		window <= lastAck) return 1;
+		src->sendinfo->nextSendSeqno >= src->sendinfo->seqBase &&
+		src->sendinfo->nextSendSeqno <= src->sendinfo->seqMax) return 1;
 	else return 0;
 
 	return 0;
@@ -162,14 +167,10 @@ int hasAckData(struct applist *src) {
  */
 void sendAck(struct applist *src, uint16_t port, uint8_t srcmip) {
 	if(debug) fprintf(stderr, "MIPTP: sendAck(%p, %d, %d)\n", src, port, srcmip);
-	struct tp_packet *tpp = malloc(sizeof(struct tp_packet));
-	memset(tpp, 0, sizeof(struct tp_packet));
+	struct tp_packet *tpp;
+	tpCreatepacket(0, port, src->recvinfo->nextRecvSeqno, 0, NULL, &tpp);
 
-	tpp->seqno = src->recvinfo->nextRecvSeqno;
-	tpp->port = port;
-	tpp->pl_bits = 0;
-
-	if(debug) fprintf(stderr, "MIPTP: Sent ACK, requesting seqno %d\n", tpp->seqno);
+	if(debug || seqnodb) fprintf(stderr, "MIPTP: Sent ACK, requesting seqno %d to port %d\n", tpp->seqno, tpp->port);
 
 	addPacket(tpp, srcmip, sizeof(struct tp_packet), src->recvinfo->ackQueue);
 }
@@ -205,7 +206,7 @@ void getMipPacket(struct mipd_packet **ret, struct applist *src) {
 	if(debug) fprintf(stderr, "MIPTP: Got packet of size %d to MIP %d\n", pct->datalen, pct->dst_mip);
 	if(pct != NULL) mipdCreatepacket(pct->dst_mip, pct->datalen, (char *)pct->data, ret);
 
-	if(debug) fprintf(stderr, "MIPTP: STATE: Next Send %d | Next Add %d | Last Ack %d\n", src->sendinfo->nextSendSeqno, src->sendinfo->nextAddSeqno, src->sendinfo->lastAckSeqno);
+	if(debug) fprintf(stderr, "MIPTP: STATE: SeqNo %d | nAdd %d | seqBase %d | seqMax %d\n", src->sendinfo->nextSendSeqno, src->sendinfo->nextAddSeqno, src->sendinfo->seqBase, src->sendinfo->seqMax);
 }
 
 /**
@@ -221,7 +222,7 @@ void getAckPacket(struct mipd_packet **ret, struct applist *src) {
 
 	if(debug) fprintf(stderr, "MIPTP: Creating mipd packet, size %d, to %d\n", pl->datalen, pl->dst_mip);
 
-	fprintf(stderr, "MIPTP: Created with port %d\n", pl->data->port);
+	if(debug) fprintf(stderr, "MIPTP: Created with port %d\n", pl->data->port);
 
 	mipdCreatepacket(pl->dst_mip, pl->datalen, (char *)pl->data, ret);
 	removeNextPacket(src->recvinfo->ackQueue);
@@ -234,20 +235,13 @@ void getAckPacket(struct mipd_packet **ret, struct applist *src) {
 void updateSeqnos(struct applist *src) {
 	if((time(NULL)-src->sendinfo->lastAckTime) > timeout) {
 		// Timeout without new ack, go back to previous ack
-		if(debug) fprintf(stderr, "MIPTP: Timeout! No ACKs in last %ds, reset window.\n", timeout);
-		src->sendinfo->nextSendSeqno = src->sendinfo->lastAckSeqno;
+		if(debug || seqnodb) fprintf(stderr, "MIPTP: Timeout! No ACKs in last %ds, reset window to %d.\n", timeout, src->sendinfo->seqBase);
+		src->sendinfo->nextSendSeqno = src->sendinfo->seqBase;
 		src->sendinfo->lastAckTime = time(NULL);
 		if(src->lastTimeout == 0) src->lastTimeout = time(NULL);
 	}
-
-	int nextSend = src->sendinfo->nextSendSeqno;
-	int lastAck = src->sendinfo->lastAckSeqno;
-	int window = nextSend-WINDOW_SIZE;
-	if(window >= lastAck) {
-		src->sendinfo->nextSendSeqno = src->sendinfo->lastAckSeqno;
-	}
 	
-	removeToSeqno(src->sendinfo->lastAckSeqno, src->sendinfo->sendQueue);
+	removeToSeqno(src->sendinfo->seqBase, src->sendinfo->sendQueue);
 }
 
 /**
@@ -257,9 +251,9 @@ void updateSeqnos(struct applist *src) {
  */
 int doneSending(struct applist *src) {
 	if(src->disconnected &&
-		!hasSendData(src) &&
+		src->sendinfo->sendQueue->next == NULL &&
 		src->sendinfo->nextSendSeqno == src->sendinfo->nextAddSeqno &&
-		src->sendinfo->nextSendSeqno == src->sendinfo->lastAckSeqno) return 1;
+		src->sendinfo->nextSendSeqno == src->sendinfo->seqBase) return 1;
 	else return 0;
 
 	return 0;

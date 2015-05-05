@@ -12,7 +12,8 @@ struct sendinfo {
 	uint32_t nextSendSeqno;
 	uint32_t nextAddSeqno;
 	time_t lastAckTime;
-	uint32_t lastAckSeqno;
+	uint32_t seqBase;
+	uint32_t seqMax;
 	struct packetlist *sendQueue;
 };
 
@@ -129,6 +130,8 @@ void initdata(struct applist *init) {
 	init->sendinfo->sendQueue->next = NULL;
 	init->recvinfo->recvQueue->next = NULL;
 	init->recvinfo->ackQueue->next = NULL;
+
+	init->sendinfo->seqMax = WINDOW_SIZE-1;
 }
 
 void freeAppList(struct applist *al) {

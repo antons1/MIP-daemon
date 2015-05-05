@@ -6,3 +6,4 @@ extern uint8_t debug;
 extern uint16_t timeout;
 extern uint16_t totTimeout;
 extern struct applist *approot;
+extern uint8_t seqnodb;
