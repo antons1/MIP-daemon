@@ -22,6 +22,9 @@ uint16_t dstport;
 char *filename;
 int lconn;
 int i = 0;
+off_t fsz;
+int noPs;
+int prc = 0;
 
 int checkargs(int, char *[]);
 int checkNumber(int, char *, int, int);
@@ -53,6 +56,12 @@ int main(int argc, char *argv[]) {
 		perror("FILEC: Opening file");
 		return 1;
 	}
+
+	struct stat finf;
+	fstat(filefd, &finf);
+	noPs = (int)(finf.st_size)/MAX_PART_SIZE;
+	printf("FILEC: WIll send %u pieces\n", noPs);
+	prc = 0;
 
 	lconn = socket(AF_UNIX, SOCK_SEQPACKET, 0);
 	if(lconn == -1) {
@@ -183,12 +192,15 @@ int senddata(char *data, ssize_t length) {
 
 	if(sb <= 0) {
 		perror("FILEC: Error sending data");
+		printf("\r");
 		return 0;
 	} else if(!create) {
-		printf("FILEC: Error creating MIPtp packet\n");
+		printf("FILEC: Error creating MIPtp packet                      \r");
 		return 0;
 	} else {
-		printf("FILEC: Seq %d - Sent %zd bytes of data (said %d, got %zd)\r", i++, sb, mp->content_len, length);
+		double tmp = ((double)i/(double)noPs)*100;
+		prc = tmp;
+		fprintf(stderr, "FILEC: Seq %04u - Sent %04zd bytes of data, sent %03u%%\r", i++, sb, prc);
 		nanosleep(&waiter, NULL);
 		return 1;
 	}
