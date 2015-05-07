@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
 	while(1){
 		ssize_t rb = recv(sock, buf, 1500, 0);
 		if(rb <= 0) {
-			perror("FILES: Reading from MIP");
+			perror("\nFILES: Reading from MIP");
 			break;
 		}
 
@@ -87,21 +87,21 @@ int main(int argc, char *argv[]) {
 		if(filefd == 0) {
 			filefd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC);
 			if(filefd == -1) {
-				perror("FILES: Opening file for writing");
+				perror("\nFILES: Opening file for writing");
 				break;
 			}
 		}
 
 		ssize_t wb = write(filefd, tpp->content, tpp->content_len);
 		if(wb == -1) {
-			perror("FILES: Writing to file");
+			perror("\nFILES: Writing to file");
 			break;
 		} else {
-			printf("FILES: Seq %d - Recieved %zd bytes.\n", i++, wb);
+			fprintf(stderr, "FILES: Seq %d - Recieved %zd bytes.\r", i++, wb);
 		}
 
 		if(tpp->content_len < F_MAX_LEN) {
-			printf("FILES: End of file reached\n");
+			printf("\nFILES: End of file reached\n");
 			break;
 		}
 

@@ -31,19 +31,34 @@ int containsSeqno(uint32_t, struct packetlist *);
  * @return         1 on success, 0 on error
  */
 int addPacket(struct tp_packet *data, uint8_t dstmip, uint16_t datalen, struct packetlist *pl) {
-	if(debug) fprintf(stderr, "MIPTP: addPacket(%p, %d, %d, %p)\n", data, dstmip, datalen, pl);
+	//if(debug) fprintf(stderr, "MIPTP: addPacket(%p, %d, %d, %p)\n", data, dstmip, datalen, pl);
 	if(pl == NULL) return 0;
 	if(data == NULL) return 0;
 
-	while(pl->next != NULL) pl = pl->next;
-	pl->next = malloc(sizeof(struct packetlist)),
+	struct packetlist *pl2 = pl;
+	while(pl->next != NULL) {
+		if(pl->next->data->seqno < data->seqno) pl = pl->next;
+		else if(pl->next->data->seqno == data->seqno) return 0;
+		else break;
+	}
+
+	if(debug) fprintf(stderr, "MIPTP: Adding packet to packetlist: ");
+
+	if(pl2 != pl && debug) fprintf(stderr, "After SN %d, ", pl->data->seqno);
+	else if(debug) fprintf(stderr, "As root, ");
+		
+	struct packetlist *tmp = pl->next;
+	pl->next = malloc(sizeof(struct packetlist));
 	pl = pl->next;
 	memset(pl, 0, sizeof(struct packetlist));
 	pl->data = data;
 	pl->datalen = datalen;
 	pl->dst_mip = dstmip;
-	pl->next = NULL;
+	pl->next = tmp;
 
+	if(debug)fprintf(stderr, "Added SN %d, ", pl->data->seqno);
+	if(pl->next != NULL && debug) fprintf(stderr, "Befor SN %d\n", pl->next->data->seqno);
+	else if(debug) fprintf(stderr, "At the end\n");
 	return 1;
 }
 
@@ -119,7 +134,7 @@ int removeToSeqno(uint32_t seqno, struct packetlist *pl) {
 	while(pl->next != NULL) {
 		if(pl->next->data->seqno < seqno) {
 			removed++;
-			if(debug) fprintf(stderr, "MIPTP: Removed seqno %d\n", pl->next->data->seqno);
+			//if(debug) fprintf(stderr, "MIPTP: Removed seqno %d\n", pl->next->data->seqno);
 			struct packetlist *tmp = pl->next;
 			pl->next = tmp->next;
 			free(tmp->data);

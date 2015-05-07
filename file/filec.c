@@ -93,14 +93,17 @@ int main(int argc, char *argv[]) {
 	while(1) {
 		ssize_t rb = read(filefd, buf, MAX_PART_SIZE);
 		if(rb == -1) {
+			printf("\n");
 			perror("FILEC: Reading file");
 			break;
 		} else if(rb == 0) {
+			printf("\n");
 			printf("FILEC: End of file reached\n");
 			break;
 		} else {
 			error = senddata(buf, rb);
 			if(error == 0) {
+				printf("\n");
 				printf("FILEC: Error sending data\n");
 				break;
 			}
@@ -192,7 +195,7 @@ int senddata(char *data, ssize_t length) {
 
 	if(sb <= 0) {
 		perror("FILEC: Error sending data");
-		printf("\r");
+		printf("              \r");
 		return 0;
 	} else if(!create) {
 		printf("FILEC: Error creating MIPtp packet                      \r");

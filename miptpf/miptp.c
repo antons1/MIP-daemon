@@ -169,7 +169,8 @@ int main(int argc, char *argv[]) {
 				}
 
 				if(timedout(curr) || (doneSending(curr) && doneRecieving(curr))) {
-					if(debug) fprintf(stderr, "MIPTP: App finished or timedout. Timeout: %d\n", timedout(curr));
+					if(debug && timedout(curr)) fprintf(stderr, "MIPTP: App timed out. Disconnecting.\n");
+					else if(debug) fprintf(stderr, "MIPTP: App finished sending all data. Disconnecting\n");
 					struct applist *tmp = curr;
 					curr = curr->next;
 

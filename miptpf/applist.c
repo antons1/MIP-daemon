@@ -41,7 +41,7 @@ void initdata(struct applist *);
 void freeAppList(struct applist *);
 
 int getApp(uint16_t port, struct applist **ret, struct applist *srch) {
-	if(debug) fprintf(stderr, "MIPTP: getApp(%d, (return parameter))\n", port);
+	//if(debug) fprintf(stderr, "MIPTP: getApp(%d, (return parameter))\n", port);
 	
 	while(srch->next != NULL) {
 		if(srch->next->port == port) {
@@ -56,7 +56,7 @@ int getApp(uint16_t port, struct applist **ret, struct applist *srch) {
 }
 
 int addApp(uint16_t port, uint8_t fdind, struct applist **ret, struct applist *srch) {
-	if(debug) fprintf(stderr, "MIPTP: addApp(%d, %d,(Return parameter))\n", port, fdind);
+	//if(debug) fprintf(stderr, "MIPTP: addApp(%d, %d,(Return parameter))\n", port, fdind);
 	
 	while(srch->next != NULL) srch = srch->next;
 
@@ -77,7 +77,7 @@ int addApp(uint16_t port, uint8_t fdind, struct applist **ret, struct applist *s
 }
 
 int rmApp(uint16_t port, struct applist *srch) {
-	if(debug) fprintf(stderr, "MIPTP: rmApp(%d)\n", port);
+	//if(debug) fprintf(stderr, "MIPTP: rmApp(%d)\n", port);
 
 	while(srch->next != NULL) {
 		if(srch->next->port == port) {
@@ -102,7 +102,7 @@ int rmApp(uint16_t port, struct applist *srch) {
 
 void initroot(struct applist **root) {
 	if(*root == NULL) {
-		if(debug) fprintf(stderr, "MIPTP: initroot()\n");
+		//if(debug) fprintf(stderr, "MIPTP: initroot()\n");
 		*root = malloc(sizeof(struct applist));
 		memset(*root, 0, sizeof(struct applist));
 		(*root)->next = NULL;
@@ -112,7 +112,7 @@ void initroot(struct applist **root) {
 }
 
 void initdata(struct applist *init) {
-	if(debug) fprintf(stderr, "MIPTP: initdata(%p)\n", init);
+	//if(debug) fprintf(stderr, "MIPTP: initdata(%p)\n", init);
 	init->sendinfo = malloc(sizeof(struct sendinfo));
 	init->recvinfo = malloc(sizeof(struct recvinfo));
 
