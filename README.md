@@ -4,16 +4,16 @@ This is a series of network protocols and software made for mandatory assignment
 
 MIP Daemon
 ---
-The MIP Daemon communicates with the computers ethernet interfaces
+The MIP Daemon communicates with the computers ethernet interfaces.
 
 Routing Daemon
 ---
-The routing daemon takes care of routing packages
+The routing daemon takes care of routing packages.
 
 Ping
 ---
-The PING server and client takes care of ping
+The PING server and client takes care of ping.
 
 MIP-TP
 ---
-This is the transport protocol
+This is the transport protocol.
